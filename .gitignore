@@ -1,0 +1,13 @@
+__pycache__/
+.coverage
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.tox/
+*.egg-info/
+coverage.xml
+htmlcov/
+.venv/
+
+# Service account key
+tests/*.json
