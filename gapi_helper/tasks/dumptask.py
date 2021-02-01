@@ -25,9 +25,15 @@ class DumpTask(Task, Generic[SourceModel], metaclass=abc.ABCMeta):
         """
         raise NotImplementedError  # pragma: no cover
 
-    @abc.abstractmethod
     def getQuery(self) -> Query:
-        raise NotImplementedError
+        """Method that can be re-implemented to define the query to execute for dumping.
+
+        By default, selects all items in the model.
+
+        Returns:
+        - Query: Query to execute - all() method will be called to execute the query
+        """
+        return self.getModel().query
 
     @abc.abstractmethod
     def getSheet(self) -> Sheet:
@@ -42,10 +48,14 @@ class DumpTask(Task, Generic[SourceModel], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def getMapping(self) -> Mapping:
-        raise NotImplementedError
+        """Method to implement to define the mapping used for dumping.
 
-    def get_keycolumn_name(self) -> str:
-        return "id"
+        This is mandatory to know the order of the columns and the formatting.
+
+        Returns:
+        - Mapping: Mapping to use for dumping
+        """
+        raise NotImplementedError  # pragma: no cover
 
     def _dumpToSheet(self) -> Dict[str, int]:
         written = 0
