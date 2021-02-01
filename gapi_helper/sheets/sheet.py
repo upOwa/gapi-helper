@@ -126,12 +126,30 @@ class Sheet:
     def bulkUpdate(
         self,
         keys: Iterable[str],
-        sourceRange: str,
-        destinationRowOffset: int,
-        destinationCol: int,
-        destinationValue: Union[str, Dict[str, str]],
+        source_range: str,
+        destination_row_offset: int,
+        destination_column: int,
+        destination_value: Union[str, Dict[str, str]],
         dryrun: bool = False,
     ) -> List[Tuple[int, str]]:
+        """Updates a column based on the value of another column
+
+        Args:
+        - keys (Iterable[str]): Keys to update
+        - source_range (str): Column and range which contains keys (e.g. "'CONTRATS SIGNES'!Z3:Z" ou "Z3:Z" - tab name is optional, and filled from tab_name argument if needed)
+        - destination_row_offset (int): Offset from header (0-indexed) - typically line of source_range minus 1
+        - destination_column (int): Index of the column to update in the sheet (0-indexed)
+        - destination_value (Union[str, Dict[str, str]]): Values to put in the sheet:
+            - Either a single value (will put the same value for all keys)
+            - Or a map key=>value (will put the value corresponding to the key)
+        - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+
+        Raises:
+        - Exception: Failure after 5 retries
+
+        Returns:
+        - List[Tuple[int, str]]: List of tuples (line number update, new value)
+        """
         self.loadInfos()
         self.parent.loadInfos()
         assert self.parent.spreadsheet_name is not None
@@ -142,10 +160,10 @@ class Sheet:
             self.parent.spreadsheet_name,
             self.tab_id,
             self.tab_name,
-            sourceRange,
-            destinationRowOffset,
-            destinationCol,
-            destinationValue,
+            source_range,
+            destination_row_offset,
+            destination_column,
+            destination_value,
             dryrun,
         )
 
@@ -173,8 +191,19 @@ class Sheet:
         )
 
     def bulkWrite(
-        self, data: Iterable[Iterable[str]], rowIndex: int, columnIndex: int, dryrun: bool = False
+        self, data: Iterable[Iterable[str]], row_index: int, column_index: int, dryrun: bool = False
     ) -> None:
+        """Writes data into a range
+
+        Args:
+        - data (Iterable[Iterable[str]]): Data to write, as a 2-dimension iterable of strings (list of rows, then columns)
+        - row_index (int): Index of the row where to start writing (0-based)
+        - column_index (int): Index of the column where to start writing (0-based)
+        - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+
+        Raises:
+        - Exception: Failure after 5 retries
+        """
         self.loadInfos()
         self.parent.loadInfos()
         assert self.parent.spreadsheet_name is not None
@@ -185,8 +214,8 @@ class Sheet:
             self.parent.spreadsheet_name,
             self.tab_id,
             self.tab_name,
-            rowIndex,
-            columnIndex,
+            row_index,
+            column_index,
             dryrun=dryrun,
         )
 

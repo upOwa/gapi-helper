@@ -47,7 +47,7 @@ class DumpTask(Task, Generic[SourceModel], metaclass=abc.ABCMeta):
     def get_keycolumn_name(self) -> str:
         return "id"
 
-    def dumpToSheet(self) -> Dict[str, int]:
+    def _dumpToSheet(self) -> Dict[str, int]:
         written = 0
         columns: List[Tuple[str, Column]] = []
         for name, column in self._mapping.get_columns():
@@ -90,4 +90,4 @@ class DumpTask(Task, Generic[SourceModel], metaclass=abc.ABCMeta):
 
         self._mapping._complete_from_model(self._model)
 
-        return {"dump": self.dumpToSheet()}
+        return {"dump": self._dumpToSheet()}

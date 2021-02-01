@@ -83,7 +83,7 @@ class TransferDestination:
         self._filter = filter
         self._clean = clean
 
-    def replace(self, new_sheet_to: Sheet) -> "TransferDestination":
+    def _replace(self, new_sheet_to: Sheet) -> "TransferDestination":
         return TransferDestination(new_sheet_to, ranges=self._ranges, filter=self._filter, clean=self._clean)
 
 
@@ -106,9 +106,14 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def getDestinations(self) -> Collection[TransferDestination]:
-        raise NotImplementedError
+        """Method to implement to define the destinations
 
-    def computeData(self, destination: TransferDestination) -> List[Row]:
+        Returns:
+        - Collection[TransferDestination]: List of destinations
+        """
+        raise NotImplementedError  # pragma: no cover
+
+    def _computeData(self, destination: TransferDestination) -> List[Row]:
         generated_data: List[Row] = []
 
         outputs: List[io.StringIO] = []
@@ -160,7 +165,7 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
         with SheetsService._lock:
             return service.spreadsheets().batchUpdate(spreadsheetId=spreadsheetId, body=body).execute()
 
-    def writeGs(self, destination: TransferDestination, generated_data: List[Row]) -> int:
+    def _write_to_sheet(self, destination: TransferDestination, generated_data: List[Row]) -> int:
         requests: List[Any] = []
         requests_size = 0
         requests_sent = 0
@@ -181,7 +186,7 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
                     destination._sheet_to.tab_name,
                     r._destination.toA1N1(),
                     dryrun=self.dryrun,
-                    removeFilter=False,
+                    remove_filter=False,
                 )
 
             requests.append(
@@ -268,7 +273,7 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
 
     def _work(self, dest, generatedData) -> int:
         dest._sheet_to.removeFilter(self.dryrun)
-        return self.writeGs(dest, generatedData)
+        return self._write_to_sheet(dest, generatedData)
 
     def do(self) -> bool:
         if Task.TESTING:
@@ -282,12 +287,12 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
         for dest in destinations:
             if self.use_testing:
                 self.logger.info("Using test spreadsheet instead")
-                dest = dest.replace(SheetsService.getTestSpreadsheet())
+                dest = dest._replace(SheetsService.getTestSpreadsheet())
 
-            generatedData = self.computeData(dest)
+            generatedData = self._computeData(dest)
             try:
                 dest._sheet_to.removeFilter(self.dryrun)
-                requests_sent = self.writeGs(dest, generatedData)
+                requests_sent = self._write_to_sheet(dest, generatedData)
                 self.logger.info(
                     "Done writing to {} ({}): {} requests sent".format(
                         dest._sheet_to.parent.spreadsheet_id,

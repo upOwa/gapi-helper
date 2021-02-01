@@ -52,37 +52,42 @@ def removefilter(spreadsheet_id: str, tab_id: int, dryrun=False) -> None:
 
 
 def bulkupdate(
-    numerosinstallation: Iterable[str],
+    keys: Iterable[str],
     spreadsheet_id: str,
     spreadsheet_name: str,
     tab_id: int,
     tab_name: str,
-    sourceRange: str,
-    destinationRowOffset: int,
-    destinationCol: int,
-    destinationValue: Union[str, Dict[str, str]],
+    source_range: str,
+    destination_row_offset: int,
+    destination_column: int,
+    destination_value: Union[str, Dict[str, str]],
     dryrun: bool = False,
-    removeFilter: bool = True,
+    remove_filter: bool = True,
 ) -> List[Tuple[int, str]]:
-    """Met à jour toute une colonne en fonction d'une clé
+    """Updates a column based on the value of another column.
+
+    This method should probably not be called directly; use Sheet.bulkUpdate instead.
 
     Args:
-        numerosinstallation (Iterable[str]): Liste de clés à mettre à jour
-        destination (GsSheet): Destination à mettre à jour
-        sourceRange (str): Colonne des clés (e.g. "'CONTRATS SIGNES'!Z3:Z" ou "Z3:Z")
-        destinationRowOffset (int): Offset par rapport à l'entête à mettre à jour (0-indexed)
-            typiquement ligne de `sourcerange` - 1
-        destinationCol (int): Index de colonne à mettre à jour (0-indexed)
-        destinationValue (Union[str, Dict[str, str]]): Valeurs à mettre à jour
-            Soit une valeur (mettra la même valeur pour toutes les clés)
-            Soit une map clé=>valeur (mettra la valeur correspondant à la clé)
-        dryrun (bool, optional): Dry-run. Defaults to False.
+    - keys (Iterable[str]): Keys to update
+    - spreadsheet_id (str): Spreadsheet ID to update
+    - spreadsheet_name (str): Spreadsheet name to update
+    - tab_id (int): Sheet ID to update
+    - tab_name (str): Sheet name to update
+    - source_range (str): Column and range which contains keys (e.g. "'CONTRATS SIGNES'!Z3:Z" ou "Z3:Z" - tab name is optional, and filled from tab_name argument if needed)
+    - destination_row_offset (int): Offset from header (0-indexed) - typically line of source_range minus 1
+    - destination_column (int): Index of the column to update in the sheet (0-indexed)
+    - destination_value (Union[str, Dict[str, str]]): Values to put in the sheet:
+        - Either a single value (will put the same value for all keys)
+        - Or a map key=>value (will put the value corresponding to the key)
+    - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+    - remove_filter (bool, optional): If True, removes any active filter before doing anything. Defaults to True.
 
     Raises:
-        e: Impossible de mettre à jour après 5 tentatives
+    - Exception: Failure after 5 retries
 
     Returns:
-        List[Tuple[int, str]]: Liste de tuples (numéro de ligne modifiée, nouvelle valeur)
+    - List[Tuple[int, str]]: List of tuples (line number update, new value)
     """
     if SheetsService._force_test_spreadsheet:
         s = SheetsService.getTestSpreadsheet()
@@ -91,13 +96,13 @@ def bulkupdate(
         tab_id = cast(int, s.tab_id)
         tab_name = s.tab_name
 
-    if removeFilter:
+    if remove_filter:
         removefilter(spreadsheet_id, tab_id, dryrun=dryrun)
 
-    if "!" in sourceRange:
-        fullSourceRange = sourceRange
+    if "!" in source_range:
+        fullSourceRange = source_range
     else:
-        fullSourceRange = "'{}'!{}".format(tab_name.replace("'", "\\'"), sourceRange)
+        fullSourceRange = "'{}'!{}".format(tab_name.replace("'", "\\'"), source_range)
 
     failures = 0
     delay = 30.0
@@ -120,12 +125,12 @@ def bulkupdate(
             index = []
             if result and "values" in result:
                 for idx, val in enumerate(result["values"]):
-                    if len(val) > 0 and val[0] in numerosinstallation:
-                        if isinstance(destinationValue, dict):
-                            newValue = destinationValue[val[0]]
+                    if len(val) > 0 and val[0] in keys:
+                        if isinstance(destination_value, dict):
+                            newValue = destination_value[val[0]]
                         else:
-                            newValue = destinationValue
-                        index.append((idx + destinationRowOffset, newValue))
+                            newValue = destination_value
+                        index.append((idx + destination_row_offset, newValue))
 
                 batch_update_spreadsheet_request_body: Dict[str, Any] = {"requests": []}
                 for i in index:
@@ -138,7 +143,7 @@ def bulkupdate(
                                 "coordinate": {
                                     "sheetId": tab_id,
                                     "rowIndex": i[0],
-                                    "columnIndex": destinationCol,
+                                    "columnIndex": destination_column,
                                 },
                             },
                         }
@@ -187,8 +192,24 @@ def bulkclean(
     tab_name: str,
     range: str,
     dryrun: bool = False,
-    removeFilter: bool = True,
+    remove_filter: bool = True,
 ) -> None:
+    """Removes all data in a range.
+
+    This method should probably not be called directly; use Sheet.bulkClean instead.
+
+    Args:
+    - spreadsheet_id (str): Spreadsheet ID to clean
+    - spreadsheet_name (str): Spreadsheet name to clean
+    - tab_id (int): Sheet ID to clean
+    - tab_name (str): Sheet name to clean
+    - range (str): Range to clean (e.g. A2:C)
+    - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+    - remove_filter (bool, optional): If True, removes any active filter before doing anything. Defaults to True.
+
+    Raises:
+    - Exception: Failure after 5 retries
+    """
     if SheetsService._force_test_spreadsheet:
         s = SheetsService.getTestSpreadsheet()
         spreadsheet_id = s.parent.spreadsheet_id
@@ -196,7 +217,7 @@ def bulkclean(
         tab_id = cast(int, s.tab_id)
         tab_name = s.tab_name
 
-    if removeFilter:
+    if remove_filter:
         removefilter(spreadsheet_id, tab_id, dryrun=dryrun)
 
     if "!" in range:
@@ -241,11 +262,29 @@ def bulkwrite(
     spreadsheet_name: str,
     tab_id: int,
     tab_name: str,
-    rowIndex: int,
-    columnIndex: int,
+    row_index: int,
+    column_index: int,
     dryrun: bool = False,
-    removeFilter: bool = True,
+    remove_filter: bool = True,
 ) -> None:
+    """Writes data into a range.
+
+    This method should probably not be called directly; use Sheet.bulkWrite instead.
+
+    Args:
+    - data (Iterable[Iterable[str]]): Data to write, as a 2-dimension iterable of strings (list of rows, then columns)
+    - spreadsheet_id (str): Spreadsheet ID to write to
+    - spreadsheet_name (str): Spreadsheet name to write to
+    - tab_id (int): Sheet ID to write to
+    - tab_name (str): Sheet name to write to
+    - row_index (int): Index of the row where to start writing (0-based)
+    - column_index (int): Index of the column where to start writing (0-based)
+    - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+    - remove_filter (bool, optional): If True, removes any active filter before doing anything. Defaults to True.
+
+    Raises:
+    - Exception: Failure after 5 retries
+    """
     if SheetsService._force_test_spreadsheet:
         s = SheetsService.getTestSpreadsheet()
         spreadsheet_id = s.parent.spreadsheet_id
@@ -261,7 +300,7 @@ def bulkwrite(
 
     csvdata = output.getvalue()
 
-    if removeFilter:
+    if remove_filter:
         removefilter(spreadsheet_id, tab_id, dryrun=dryrun)
 
     batch_update_spreadsheet_request_body = {
@@ -271,7 +310,7 @@ def bulkwrite(
                     "data": csvdata,
                     "type": "PASTE_NORMAL",
                     "delimiter": ",",
-                    "coordinate": {"sheetId": tab_id, "rowIndex": rowIndex, "columnIndex": columnIndex},
+                    "coordinate": {"sheetId": tab_id, "rowIndex": row_index, "columnIndex": column_index},
                 },
             }
         ]
@@ -313,8 +352,25 @@ def bulkappend(
     tab_name: str,
     range: str,
     dryrun: bool = False,
-    removeFilter: bool = False,
+    remove_filter: bool = False,
 ) -> None:
+    """Appends data to a range.
+
+    This method should probably not be called directly; use Sheet.bulkAppend instead.
+
+    Args:
+    - data (Iterable[Iterable[str]]): Data to write, as a 2-dimension iterable of strings (list of rows, then columns)
+    - spreadsheet_id (str): Spreadsheet ID to write to
+    - spreadsheet_name (str): Spreadsheet name to write to
+    - tab_id (int): Sheet ID to write to
+    - tab_name (str): Sheet name to write to
+    - range (str): Range to append data to (e.g. A1:R)
+    - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+    - remove_filter (bool, optional): If True, removes any active filter before doing anything. Defaults to True.
+
+    Raises:
+    - Exception: Failure after 5 retries
+    """
     if SheetsService._force_test_spreadsheet:
         s = SheetsService.getTestSpreadsheet()
         spreadsheet_id = s.parent.spreadsheet_id
@@ -322,7 +378,7 @@ def bulkappend(
         tab_id = cast(int, s.tab_id)
         tab_name = s.tab_name
 
-    if removeFilter:
+    if remove_filter:
         removefilter(spreadsheet_id, tab_id, dryrun=dryrun)
 
     if "!" in range:
