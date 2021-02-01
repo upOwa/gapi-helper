@@ -74,7 +74,32 @@ class Sheet:
             "{} - {}-{}.csv".format(self.parent.spreadsheet_name, self.tab_name, t),
         )
 
-    def download(self, filePath: str) -> None:
+    def download(self, force: bool = False) -> str:
+        """Downloads the Sheet as a CSV file.
+
+        Stored in the backup location configured with SheetsService.configure. Filename is formatted as: <spreadsheet name> - <tab name>-<date>.csv
+
+        Args:
+        - force (bool, optional): Forces download of the file. Defaults to False - skips download if the file already exists.
+
+        Returns:
+        - str: Full path to the downloaded file.
+        """
+        now = datetime.datetime.now()
+        path = self.getFilepath(now)
+        if not os.path.exists(path) or force:
+            self.downloadTo(path)
+        return path
+
+    def downloadTo(self, filePath: str) -> None:
+        """Downloads the Sheet as a CSV file at a specific path.
+
+        Args:
+        - filePath (str): Destination path of the file (where it should be downloaded)
+
+        Raises:
+        - Exception: Failed
+        """
         if self.tab_id is None:
             self.parent.loadInfos()
             if self.tab_id is None:
@@ -273,7 +298,7 @@ class Sheet:
         """
         if date is None:
             with tempfile.NamedTemporaryFile("r", encoding="utf-8") as csvfile:
-                self.download(csvfile.name)
+                self.downloadTo(csvfile.name)
                 yield csv.reader(csvfile, delimiter=",", quotechar='"')  # type: ignore
         else:
             with open(self.getFilepath(date), "r", encoding="utf-8") as csvfile:
@@ -291,7 +316,7 @@ class Sheet:
         """
         if date is None:
             with tempfile.NamedTemporaryFile("r", encoding="utf-8") as csvfile:
-                self.download(csvfile.name)
+                self.downloadTo(csvfile.name)
                 yield csvfile
         else:
             with open(self.getFilepath(date), "r", encoding="utf-8") as csvfile:
