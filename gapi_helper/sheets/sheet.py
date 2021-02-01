@@ -7,26 +7,45 @@ import time
 from typing import IO, TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 import requests
-
 from simpletasks_data import Mapping
 
 from .client import SheetsService
 from .operations import bulkappend, bulkclean, bulkupdate, bulkwrite, removefilter
 
 if TYPE_CHECKING:
-    from .spreadsheet import Spreadsheet
+    from .spreadsheet import Spreadsheet  # pragma: no cover
 
 
 class Sheet:
+    """Abstraction for Sheets (i.e. tabs)"""
+
     def __init__(
         self, parent: "Spreadsheet", tab_name: str, tab_id: int = None, mapping: Mapping = None
     ) -> None:
+        """Constructor.
+
+        Providing a tab_id can be useful if you have special characters in the tab name and want to keep nice
+        filenames onces downloaded.
+
+        Args:
+        - parent (Spreadsheet): Parent SpreadSheet
+        - tab_name (str): Name of the Sheet (can be different from the "real" tab name if tab_id is provided)
+        - tab_id (int, optional): Id of the Sheet (as given by https://docs.google.com/spreadsheets/d/<spreadsheet_id>/edit#gid=<tab_id>). Defaults to None (discovered, based on the name).
+        - mapping (Mapping, optional): Mapping. Defaults to None.
+        """
         self.tab_name = tab_name
         self.tab_id = tab_id
         self.parent = parent
         self.mapping = mapping
 
-    def loadInfos(self, force=False) -> "Sheet":
+    def loadInfos(self, force: bool = False) -> "Sheet":
+        """Loads sheet informations.
+
+        You should not need to call this explicitely.
+
+        Returns:
+        - Sheet: self
+        """
         if self.tab_id is None:
             self.parent.loadInfos(force)
             if self.tab_id is None:
@@ -34,6 +53,14 @@ class Sheet:
         return self
 
     def getFilepath(self, timestamp: Union[datetime.datetime, datetime.date, str]) -> str:
+        """Gets the path to the downloaded file for a specific date.
+
+        Args:
+        - timestamp (Union[datetime.datetime, datetime.date, str]): Date
+
+        Returns:
+        - str: Full path to the file
+        """
         if self.parent.spreadsheet_name is None:
             self.parent.loadInfos()
 
@@ -58,7 +85,7 @@ class Sheet:
         )
 
         failures = 0
-        delay: float = 30
+        delay = 30.0
         while True:
             try:
                 SheetsService._logger.info("Downloading {}...".format(filePath))
@@ -83,7 +110,15 @@ class Sheet:
                 SheetsService.reset()
                 delay *= 1.5
 
-    def removeFilter(self, dryrun=False) -> None:
+    def removeFilter(self, dryrun: bool = False) -> None:
+        """Removes any active filter on the sheet.
+
+        Args:
+        - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+
+        Raises:
+        - Exception: Failure after 5 retries
+        """
         self.loadInfos()
         assert self.tab_id is not None
         removefilter(self.parent.spreadsheet_id, self.tab_id, dryrun=dryrun)
@@ -114,7 +149,16 @@ class Sheet:
             dryrun,
         )
 
-    def bulkClean(self, range: str, dryrun=False) -> None:
+    def bulkClean(self, range: str, dryrun: bool = False) -> None:
+        """Removes all data in a range.
+
+        Args:
+        - range (str): Range to clean (e.g. A2:C)
+        - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+
+        Raises:
+        - Exception: Failure after 5 retries
+        """
         self.loadInfos()
         self.parent.loadInfos()
         assert self.parent.spreadsheet_name is not None
@@ -147,6 +191,16 @@ class Sheet:
         )
 
     def bulkAppend(self, data: Iterable[Iterable[str]], range: str, dryrun: bool = False) -> None:
+        """Appends data to a range
+
+        Args:
+        - data (Iterable[Iterable[str]]): Data to write, as a 2-dimension iterable of strings (list of rows, then columns)
+        - range (str): Range to append data to (e.g. A1:R)
+        - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+
+        Raises:
+        - Exception: Failure after 5 retries
+        """
         self.loadInfos()
         self.parent.loadInfos()
         assert self.parent.spreadsheet_name is not None
@@ -165,6 +219,29 @@ class Sheet:
     def csvreader(
         self, date: Optional[Union[datetime.date, datetime.datetime]] = None
     ) -> Iterator[Iterable[Sequence[str]]]:
+        """Generator on CSV data from a Sheet.
+
+        This can be used like:
+        ```
+        # Download current data from sheet:
+        with mysheet.csvreader() as csvreader:
+            for row in csvreader:
+                # CSV row as given by csv.reader
+                print(row[0])
+
+        # Use cached data:
+        with mysheet.csvreader(datetime(2020, 1, 1)) as csvreader:
+            for row in csvreader:
+                # CSV row as given by csv.reader
+                print(row[0])
+        ```
+
+        Args:
+        - date (Optional[Union[datetime.date, datetime.datetime]], optional): Date for cached data. Defaults to None, downloading current data from the sheet.
+
+        Yields:
+        - Iterator[Iterable[Sequence[str]]]: Iterable on the CSV rows
+        """
         if date is None:
             with tempfile.NamedTemporaryFile("r", encoding="utf-8") as csvfile:
                 self.download(csvfile.name)
@@ -175,6 +252,14 @@ class Sheet:
 
     @contextlib.contextmanager
     def open(self, date: Optional[Union[datetime.date, datetime.datetime]] = None) -> Iterator[IO]:
+        """Opens a Sheet as a file
+
+        Args:
+        - date (Optional[Union[datetime.date, datetime.datetime]], optional): Date for cached data. Defaults to None, downloading current data from the sheet.
+
+        Yields:
+        - Iterator[IO]: file-like object in read-only mod
+        """
         if date is None:
             with tempfile.NamedTemporaryFile("r", encoding="utf-8") as csvfile:
                 self.download(csvfile.name)

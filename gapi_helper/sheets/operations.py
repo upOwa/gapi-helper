@@ -7,13 +7,25 @@ from .client import SheetsService
 
 
 def removefilter(spreadsheet_id: str, tab_id: int, dryrun=False) -> None:
+    """Removes any active filter on the sheet.
+
+    This method should probably not be called directly; use Sheet.removeFilter instead.
+
+    Args:
+    - spreadsheet_id (str): Spreadsheet ID
+    - tab_id (int): Sheet ID
+    - dryrun (bool, optional): If True, does not actually do anything. Defaults to False.
+
+    Raises:
+    - Exception: Failure after 5 retries
+    """
     if SheetsService._force_test_spreadsheet:
         spreadsheet_id = SheetsService.getTestSpreadsheet().parent.spreadsheet_id
         tab_id = cast(int, SheetsService.getTestSpreadsheet().tab_id)
 
     remove_filter_spreadsheet_request_body = {"requests": [{"clearBasicFilter": {"sheetId": tab_id}}]}
     failures = 0
-    delay: float = 30
+    delay = 30.0
     while True:
         try:
             SheetsService._logger.info("Removing filter in {} ({})".format(spreadsheet_id, tab_id))
@@ -88,7 +100,7 @@ def bulkupdate(
         fullSourceRange = "'{}'!{}".format(tab_name.replace("'", "\\'"), sourceRange)
 
     failures = 0
-    delay: float = 30
+    delay = 30.0
     while True:
         try:
             SheetsService._logger.info(
@@ -193,7 +205,7 @@ def bulkclean(
         fullRangetoClean = "'{}'!{}".format(tab_name.replace("'", "\\'"), range)
 
     failures = 0
-    delay: float = 30
+    delay = 30.0
     while True:
         try:
             SheetsService._logger.info(
@@ -265,7 +277,7 @@ def bulkwrite(
         ]
     }
     failures = 0
-    delay: float = 30
+    delay = 30.0
     while True:
         try:
             SheetsService._logger.info(
@@ -325,7 +337,7 @@ def bulkappend(
     }
 
     failures = 0
-    delay: float = 30
+    delay = 30.0
     while True:
         try:
             SheetsService._logger.info(

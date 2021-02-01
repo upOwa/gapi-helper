@@ -9,11 +9,13 @@ import os
 import threading
 from typing import Any, Iterable, Optional
 
-from googleapiclient.discovery import build
+import googleapiclient.discovery
 from oauth2client.service_account import ServiceAccountCredentials
 
 
 class MailService:
+    """Service to handle Google Mail."""
+
     _sa_keyfile: Optional[str] = None
     _logger = logging.getLogger("gapi_helper")
     _lock = threading.Lock()
@@ -22,8 +24,16 @@ class MailService:
 
     @staticmethod
     def configure(
-        sa_keyfile: str, to_test: str, force_test_email: bool = False, logger_namespace: str = None
+        sa_keyfile: str, to_test: str = None, force_test_email: bool = False, logger_namespace: str = None
     ) -> None:
+        """Configures the service. Must be called before using this service.
+
+        Args:
+        - sa_keyfile (str): Path to the service account key file
+        - to_test (str): Recipient when testing
+        - force_test_email (bool, optional): Forces sending emails to test address. Defaults to False.
+        - logger_namespace (str, optional): Namespace for the logger. Defaults to None, using "gapi_helper".
+        """
         MailService._sa_keyfile = sa_keyfile
         if logger_namespace:
             MailService._logger = logging.getLogger(logger_namespace)
@@ -31,15 +41,29 @@ class MailService:
         MailService._force_test_email = force_test_email
 
     def __init__(self, sender: str, logger_namespace: str = None) -> None:
+        """Constructor
+
+        Args:
+        - sender (str): User to use
+        - logger_namespace (str, optional): Namespace for the logger. Defaults to None, using the one provided to `MailService.configure()`
+        """
         self._sender = sender
         self.credentials: Any = None
-        self.service: Any = None
+        self.service: googleapiclient.discovery.Resource = None
         if logger_namespace:
             self._logger = logging.getLogger(logger_namespace)
         else:
             self._logger = MailService._logger
 
-    def getService(self) -> Any:
+    def getService(self) -> googleapiclient.discovery.Resource:
+        """Returns the Google Mail API service
+
+        Raises:
+        - RuntimeError: Service is not configured
+
+        Returns:
+        - googleapiclient.discovery.Resource: Resource for interacting with the Google Mail API.
+        """
         with MailService._lock:
             if self.service is None:
                 if MailService._sa_keyfile is None or self._sender is None:
@@ -55,11 +79,12 @@ class MailService:
                     ),
                 )
                 self.credentials = credentials.create_delegated(self._sender)
-                self.service = build("gmail", "v1", credentials=self.credentials)
+                self.service = googleapiclient.discovery.build("gmail", "v1", credentials=self.credentials)
 
             return self.service
 
     def reset(self) -> None:
+        """Resets the service"""
         with MailService._lock:
             self.service = None
 
@@ -73,6 +98,20 @@ class MailService:
         filepath: Optional[str] = None,
         filetype: Optional[str] = None,
     ) -> email.message.EmailMessage:
+        """Buils a message
+
+        Args:
+        - to (str): Recipient - overridden if force_test_email is set when configuring the Service.
+        - subject (str): Email subject
+        - content_raw (str): Plain-text content of the email
+        - replyto (Optional[str], optional): Reply-to address. Defaults to None.
+        - cc (Optional[Iterable[str]], optional): List of CC-ied addresses. Defaults to None. Not used if force_test_email is set when configuring the Service.
+        - filepath (Optional[str], optional): Path to file to attach to the message. Defaults to None (no file attached).
+        - filetype (Optional[str], optional): File type of the attached file to be used if auto-detect fails. Defaults to None (application/octet-stream to be used).
+
+        Returns:
+        - email.message.EmailMessage: Message
+        """
         message = email.message.EmailMessage()
         message["To"] = to if not MailService._force_test_email else MailService._to_test
         message["From"] = self._sender
@@ -97,6 +136,17 @@ class MailService:
         return message
 
     def send_message(self, message: email.message.EmailMessage) -> str:
+        """Sends a message.
+
+        Args:
+        - message (email.message.EmailMessage): Message to send
+
+        Raises:
+        - RuntimeError: Cannot send email
+
+        Returns:
+        - str: ID of the message, as given by Google Mail API
+        """
         payload = {"raw": base64.urlsafe_b64encode(message.as_bytes()).decode()}
         res = self.getService().users().messages().send(userId=self._sender, body=payload).execute()
         if "id" not in res:
@@ -104,9 +154,22 @@ class MailService:
         return res["id"]
 
     def trash_message(self, id: str) -> None:
+        """Trashes a message.
+
+        Args:
+        - id (str): ID of the message to trash
+        """
         self.getService().users().messages().trash(userId=self._sender, id=id).execute()
 
     def send_and_trash_message(self, message: email.message.EmailMessage) -> str:
+        """Short-hand to send and trash a message
+
+        Args:
+        - message (email.message.EmailMessage): Message to send
+
+        Returns:
+        - str: ID of the message, as given by Google Mail API
+        """
         msg_id = self.send_message(message)
         if msg_id:
             self.trash_message(msg_id)

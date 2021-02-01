@@ -14,6 +14,8 @@ from .types import Adapter, Filter, Row
 
 
 class TransferredRange:
+    """Represents a range from the Source data that is copied into a destination range in the sheet."""
+
     def __init__(
         self,
         source: Union[Range, str],
@@ -22,6 +24,18 @@ class TransferredRange:
         adapter_partial: Adapter = None,
         clean: bool = False,
     ) -> None:
+        """Constructor
+
+        Args:
+        - source (Union[Range, str]): Range in the source data (e.g. "C2:D")
+        - destination (Union[Range, str]): Range in the destination data (e.g. "A1:B")
+        - adapter (Adapter, optional): Adapter to change data on the fly (uses the whole row as input). Defaults to None.
+        - adapter_partial (Adapter, optional): Adapter to change data on the fly (uses the source range as input). Defaults to None.
+        - clean (bool, optional): If True, cleans the destination range before transferring data. Defaults to False.
+
+        Raises:
+        - ValueError: Source and destination ranges do not match (e.g. not same width or height)
+        """
         self._source = source if isinstance(source, Range) else Range.fromA1N1(source)
         self._destination = destination if isinstance(destination, Range) else Range.fromA1N1(destination)
         self._adapter = adapter
@@ -38,6 +52,10 @@ class TransferredRange:
 
 
 class TransferDestination:
+    """Represents a destination for a transfer.
+
+    A destination is a single Sheet, but with potentially multiple ranges"""
+
     def __init__(
         self,
         sheet_to: Sheet,
@@ -45,6 +63,16 @@ class TransferDestination:
         filter: Filter = None,
         clean: bool = False,
     ) -> None:
+        """Constructor
+
+        Args:
+        - sheet_to (Sheet): Destination Sheet
+        - ranges (Iterable[Union[TransferredRange, Tuple[str, str]]]): List of ranges to transfer, either:
+            - instance of TransferredRange
+            - Tuple `(source_range, destination_range)` using A1N1 notations (e.g. `("C2:D", "A1:B")`)
+        - filter (Filter, optional): Filter to filter-out data on the fly. Defaults to None.
+        - clean (bool, optional): If True, cleans the destination ranges before transferring data. Defaults to False.
+        """
         self._sheet_to = sheet_to
         self._ranges: List[TransferredRange] = []
         for r in ranges:
@@ -60,6 +88,8 @@ class TransferDestination:
 
 
 class TransferTask(Task, metaclass=abc.ABCMeta):
+    """Task to transfer data into a Sheet"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -67,7 +97,12 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def getData(self) -> Iterable[Row]:
-        raise NotImplementedError
+        """Method to implement to generate data
+
+        Returns:
+        - Iterable[Row]: List of rows to write
+        """
+        raise NotImplementedError  # pragma: no cover
 
     @abc.abstractmethod
     def getDestinations(self) -> Collection[TransferDestination]:
@@ -273,7 +308,15 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
 
 
 class TransferCsvTask(TransferTask):
+    """Task to transfer a CSV file into a Sheet"""
+
     def __init__(self, filepath: str, csvargs: Optional[Dict[str, Any]] = {}, *args, **kwargs):
+        """Constructor
+
+        Args:
+        - filepath (str): full path to the CSV file to transfer
+        - csvargs (Optional[Dict[str, Any]], optional): Arguments to pass to csv.reader method. Default arguments are {"delimiter": ",", "quotechar": '"'}.
+        """
         super().__init__(*args, **kwargs)
         self._filepath = filepath
         self._csvargs = {"delimiter": ",", "quotechar": '"'}
@@ -290,7 +333,15 @@ class TransferCsvTask(TransferTask):
 
 
 class TransferSheetTask(TransferTask):
+    """Task to transfer a Sheet into another Sheet"""
+
     def __init__(self, sheet: Sheet, use_cache=True, *args, **kwargs):
+        """Constructor
+
+        Args:
+        - sheet (Sheet): Source sheet
+        - use_cache (bool, optional): True to use cached version, False to download the content of the Sheet on the fly. Defaults to True (date is taken from the Task parameters).
+        """
         super().__init__(*args, **kwargs)
         self._sheet_from = sheet
         self._use_cache = use_cache

@@ -14,9 +14,16 @@ SourceModel = TypeVar("SourceModel", bound=BaseModel)
 
 
 class DumpTask(Task, Generic[SourceModel], metaclass=abc.ABCMeta):
+    """Task for dumping a model into a Sheet"""
+
     @abc.abstractmethod
     def getModel(self) -> SourceModel:
-        raise NotImplementedError
+        """Method to implement to define the model to dump
+
+        Returns:
+        - SourceModel: Instance of a model
+        """
+        raise NotImplementedError  # pragma: no cover
 
     @abc.abstractmethod
     def getQuery(self) -> Query:
@@ -24,7 +31,14 @@ class DumpTask(Task, Generic[SourceModel], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def getSheet(self) -> Sheet:
-        raise NotImplementedError
+        """Method to implement to define the Sheet to dump the data into.
+
+        Data will be dumped from the first row and first column.
+
+        Returns:
+        - Sheet: Sheet to dump data into.
+        """
+        raise NotImplementedError  # pragma: no cover
 
     @abc.abstractmethod
     def getMapping(self) -> Mapping:
