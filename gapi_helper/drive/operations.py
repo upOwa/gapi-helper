@@ -10,6 +10,16 @@ from .client import DriveService
 
 
 def download_file(client: DriveService, file_id: str, destination: str) -> Optional[str]:
+    """Downloads a file
+
+    Args:
+    - client (DriveService): Client to use - must have read-access to the file
+    - file_id (str): File ID to download
+    - destination (str): Destination path of the file (where it should be downloaded)
+
+    Returns:
+    - Optional[str]: Destination path of the file, or None if failed
+    """
     failures = 0
     delay: float = 5
     while True:
@@ -19,7 +29,7 @@ def download_file(client: DriveService, file_id: str, destination: str) -> Optio
             downloader = MediaIoBaseDownload(fh, request)
             done = False
             while done is False:
-                status, done = downloader.next_chunk()
+                _status, done = downloader.next_chunk()
             fh.seek(0)
             with open(destination, "wb") as fp:
                 shutil.copyfileobj(fh, fp)  # type: ignore # Workaround for python/mypy#8962
@@ -43,6 +53,19 @@ def download_file(client: DriveService, file_id: str, destination: str) -> Optio
 def upload_file(
     client: DriveService, file: str, destination: str, mimetype: str = "image/jpeg"
 ) -> Optional[str]:
+    """Uploads a file.
+
+    Note: even if a file with the same name already exists in this folder, a new file will be created.
+
+    Args:
+    - client (DriveService): Client to use - must have write-access to the folder
+    - file (str): Path of the file to upload
+    - destination (str): Folder ID
+    - mimetype (str, optional): Mime-type of the file. Defaults to "image/jpeg".
+
+    Returns:
+    - Optional[str]: ID of the created file, or None if failed
+    """
     failures = 0
     delay: float = 5
     file_metadata = {
@@ -76,6 +99,17 @@ def upload_file(
 
 
 def update_file(client: DriveService, file: str, fileId: str, mimetype: str = "image/jpeg") -> Optional[str]:
+    """Updates a file.
+
+    Args:
+    - client (DriveService): Client to use - must have write-access to the file
+    - file (str): Path of the file to upload
+    - destination (str): File ID to update
+    - mimetype (str, optional): Mime-type of the file. Defaults to "image/jpeg".
+
+    Returns:
+    - Optional[str]: ID of the updated file, or None if failed
+    """
     failures = 0
     delay: float = 5
     while True:

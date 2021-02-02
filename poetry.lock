@@ -878,19 +878,26 @@ python-versions = "!=3.0,!=3.1,!=3.2,!=3.3,>=2.6"
 
 [[package]]
 name = "simpletasks"
-version = "0.1.0"
+version = "0.1.1"
 description = "A simple library to run one task, or multiples ones in sequence or parallel"
 category = "main"
 optional = false
-python-versions = ">=3.6.1,<4.0.0"
+python-versions = "^3.6.1"
+develop = false
 
 [package.extras]
 click = ["click (>=7.1.2,<8.0.0)"]
 tqdm = ["tqdm (>=4.54.1,<5.0.0)"]
 
+[package.source]
+type = "git"
+url = "https://github.com/upOwa/simpletasks.git"
+reference = "devel"
+resolved_reference = "ae104b75b3a3c86d93fc381ae00f19d45e204357"
+
 [[package]]
 name = "simpletasks-data"
-version = "0.1.0"
+version = "0.2.0"
 description = "A simple library to import data into a database from different sources (extensible)"
 category = "main"
 optional = false
@@ -899,7 +906,7 @@ python-versions = ">=3.6.1,<4.0.0"
 [package.dependencies]
 Flask = ">=1.1.2,<2.0.0"
 Flask-SQLAlchemy = ">=2.4.4,<3.0.0"
-simpletasks = ">=0.1.0,<0.2.0"
+simpletasks = ">=0.1.1,<0.2.0"
 
 [package.extras]
 geoalchemy = ["GeoAlchemy2 (>=0.8.4,<0.9.0)"]
@@ -1079,7 +1086,7 @@ testing = ["pytest (>=3.5,!=3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.1"
-content-hash = "f45892ff0fed1ffcd9284ee21501d80833dc50a801be9669ddb2ad4bb5f0ee41"
+content-hash = "7d00fd21a49ed9ec7d0ec993c617bc26a494f52740eda622a20da6fe7d043604"
 
 [metadata.files]
 appdirs = [
@@ -1620,13 +1627,10 @@ shellingham = [
     {file = "shellingham-1.3.2-py2.py3-none-any.whl", hash = "sha256:7f6206ae169dc1a03af8a138681b3f962ae61cc93ade84d0585cca3aaf770044"},
     {file = "shellingham-1.3.2.tar.gz", hash = "sha256:576c1982bea0ba82fb46c36feb951319d7f42214a82634233f58b40d858a751e"},
 ]
-simpletasks = [
-    {file = "simpletasks-0.1.0-py3-none-any.whl", hash = "sha256:5c5f4e19886700a802054bb0fc0eb0e220b214d1f384def9e0e938427fd777cb"},
-    {file = "simpletasks-0.1.0.tar.gz", hash = "sha256:3ebbd526a0c1e4c24941a62a674db652faa4a27fd54b039415299c89f6577ffa"},
-]
+simpletasks = []
 simpletasks-data = [
-    {file = "simpletasks-data-0.1.0.tar.gz", hash = "sha256:547558669ad9414a5389f897f96207d88cc0d84af47e94353c3efc57e7c9588c"},
-    {file = "simpletasks_data-0.1.0-py3-none-any.whl", hash = "sha256:a087ade2364e3b57a2f1398f72772d21563e65a7b5e398e5f5ae1d8e2ec33d7c"},
+    {file = "simpletasks-data-0.2.0.tar.gz", hash = "sha256:d23dd57f826ff7e8080a818dc11bc7a77ce1d1e3c464112db300fae70177d60d"},
+    {file = "simpletasks_data-0.2.0-py3-none-any.whl", hash = "sha256:7c2b3dd3d4576653daedf05fbf19365efd22cdf0d54b42bd32cf2ee214d18bb1"},
 ]
 six = [
     {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
