@@ -901,22 +901,15 @@ version = "0.2.0"
 description = "A simple library to import data into a database from different sources (extensible)"
 category = "main"
 optional = false
-python-versions = "^3.6.1"
-develop = false
+python-versions = ">=3.6.1,<4.0.0"
 
 [package.dependencies]
-Flask = "^1.1.2"
-Flask-SQLAlchemy = "^2.4.4"
-simpletasks = "rev devel"
+Flask = ">=1.1.2,<2.0.0"
+Flask-SQLAlchemy = ">=2.4.4,<3.0.0"
+simpletasks = ">=0.1.1,<0.2.0"
 
 [package.extras]
 geoalchemy = ["GeoAlchemy2 (>=0.8.4,<0.9.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/upOwa/simpletasks-data.git"
-reference = "devel"
-resolved_reference = "975adaf55a3c378feb5d40337a1469b7e0d22cbf"
 
 [[package]]
 name = "six"
@@ -1093,7 +1086,7 @@ testing = ["pytest (>=3.5,!=3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.1"
-content-hash = "62ecfb7e3e19dea7684c3528f2e223808f3e661379da10a3d36dc9a89f53f9e6"
+content-hash = "7d00fd21a49ed9ec7d0ec993c617bc26a494f52740eda622a20da6fe7d043604"
 
 [metadata.files]
 appdirs = [
@@ -1635,7 +1628,10 @@ shellingham = [
     {file = "shellingham-1.3.2.tar.gz", hash = "sha256:576c1982bea0ba82fb46c36feb951319d7f42214a82634233f58b40d858a751e"},
 ]
 simpletasks = []
-simpletasks-data = []
+simpletasks-data = [
+    {file = "simpletasks-data-0.2.0.tar.gz", hash = "sha256:d23dd57f826ff7e8080a818dc11bc7a77ce1d1e3c464112db300fae70177d60d"},
+    {file = "simpletasks_data-0.2.0-py3-none-any.whl", hash = "sha256:7c2b3dd3d4576653daedf05fbf19365efd22cdf0d54b42bd32cf2ee214d18bb1"},
+]
 six = [
     {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
     {file = "six-1.15.0.tar.gz", hash = "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259"},
