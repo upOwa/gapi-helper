@@ -27,11 +27,6 @@ jobs:
       env: TOX_ENV=py37
 
     - stage: test
-      python: pypy3
-      dist: focal
-      env: TOX_ENV=pypy3
-
-    - stage: test
       python: 3.8
       env: TOX_ENV=py38
 
