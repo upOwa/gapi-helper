@@ -80,7 +80,7 @@ class Folder:
         - Any: File that matches the name, or None if not found
         """
         failures = 0
-        delay: float = 5
+        delay = DriveService._retry_delay
         while True:
             try:
                 self.client._logger.info(
@@ -139,7 +139,7 @@ class Folder:
         - Optional[List[Any]]: List of files, or None if failed
         """
         failures = 0
-        delay: float = 5
+        delay = DriveService._retry_delay
         files = []
         page_token = None
         self.client._logger.info("Retrieving files in {} ({})...".format(self.folder_name, self.folder_id))

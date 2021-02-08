@@ -24,6 +24,7 @@ class SheetsService:
     _lock = threading.Lock()
     _logger = logging.getLogger("gapi_helper")
     _force_test_spreadsheet = False
+    _retry_delay: float = 5.0
 
     @staticmethod
     def configure(
@@ -33,6 +34,7 @@ class SheetsService:
         cacheLocation: str,
         logger_namespace: str = None,
         force_test_spreadsheet: bool = False,
+        retry_delay: float = None,
     ) -> None:
         """Configures the service. Must be called before using this service.
 
@@ -43,6 +45,7 @@ class SheetsService:
         - cacheLocation (str): Path to where cache info on Spreadsheets are stored
         - logger_namespace (str, optional): Namespace for the logger. Defaults to None, using "gapi_helper".
         - force_test_spreadsheet (bool, optional): Forces using the test Sheet. Defaults to False.
+        - retry_delay (float, optional): Delay for retrying operations (in seconds). Defaults to 5.
         """
         SheetsService._sa_keyfile = sa_keyfile
         SheetsService._spreadsheet_test = spreadsheet_test
@@ -51,6 +54,8 @@ class SheetsService:
         if logger_namespace:
             SheetsService._logger = logging.getLogger(logger_namespace)
         SheetsService._force_test_spreadsheet = force_test_spreadsheet
+        if retry_delay is not None:
+            SheetsService._retry_delay = retry_delay
 
     @staticmethod
     def getBackupLocation() -> str:
@@ -122,7 +127,7 @@ class SheetsService:
                 service = googleapiclient.discovery.build("sheets", "v4", credentials=credentials)
 
                 failures: int = 0
-                delay: float = 30
+                delay = SheetsService._retry_delay
                 while True:
                     try:
                         service.spreadsheets().get(

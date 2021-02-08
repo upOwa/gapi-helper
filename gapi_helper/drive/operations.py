@@ -21,7 +21,7 @@ def download_file(client: DriveService, file_id: str, destination: str) -> Optio
     - Optional[str]: Destination path of the file, or None if failed
     """
     failures = 0
-    delay: float = 5
+    delay = DriveService._retry_delay
     while True:
         try:
             request = client.getService().files().get_media(fileId=file_id)
@@ -67,7 +67,7 @@ def upload_file(
     - Optional[str]: ID of the created file, or None if failed
     """
     failures = 0
-    delay: float = 5
+    delay = DriveService._retry_delay
     file_metadata = {
         "name": os.path.basename(file),
         "parents": [destination],
@@ -111,7 +111,7 @@ def update_file(client: DriveService, file: str, fileId: str, mimetype: str = "i
     - Optional[str]: ID of the updated file, or None if failed
     """
     failures = 0
-    delay: float = 5
+    delay = DriveService._retry_delay
     while True:
         try:
             media = MediaFileUpload(file, mimetype=mimetype)

@@ -20,6 +20,7 @@ def service():
     _cacheLocation_old = SheetsService._cacheLocation
     _logger_old = SheetsService._logger
     _force_test_spreadsheet_old = SheetsService._force_test_spreadsheet
+    _retry_delay_old = SheetsService._retry_delay
 
     SheetsService.credentials = None
     SheetsService.service = None
@@ -30,6 +31,7 @@ def service():
     SheetsService._cacheLocation = None
     SheetsService._logger = logging.getLogger("gapi_helper")
     SheetsService._force_test_spreadsheet = False
+    SheetsService._retry_delay = 5
 
     with pytest.raises(RuntimeError) as e:
         SheetsService.getService()
@@ -45,6 +47,7 @@ def service():
     SheetsService._cacheLocation = _cacheLocation_old
     SheetsService._logger = _logger_old
     SheetsService._force_test_spreadsheet = _force_test_spreadsheet_old
+    SheetsService._retry_delay = _retry_delay_old
 
 
 _testfolder = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -63,6 +66,7 @@ def test_init(service) -> None:
         os.path.join(_testfolder, "data"),
         os.path.join(_testfolder, "cache"),
         force_test_spreadsheet=True,
+        retry_delay=30.0,
     )
 
     assert SheetsService.getService() is not None
