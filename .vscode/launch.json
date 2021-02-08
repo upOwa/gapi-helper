@@ -19,6 +19,7 @@
         "host": "localhost",
         "port": 10001
       },
+      "justMyCode": false,
       "pathMappings": [
         {
           "localRoot": "${workspaceFolder}",
