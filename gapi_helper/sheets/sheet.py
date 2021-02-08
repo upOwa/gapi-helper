@@ -110,7 +110,7 @@ class Sheet:
         )
 
         failures = 0
-        delay = 30.0
+        delay = SheetsService._retry_delay
         while True:
             try:
                 SheetsService._logger.info("Downloading {}...".format(filePath))

@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List, Tuple, Union, cast
 from .client import SheetsService
 
 
-def removefilter(spreadsheet_id: str, tab_id: int, dryrun=False) -> None:
+def removefilter(spreadsheet_id: str, tab_id: int, dryrun: bool = False) -> None:
     """Removes any active filter on the sheet.
 
     This method should probably not be called directly; use Sheet.removeFilter instead.
@@ -25,7 +25,7 @@ def removefilter(spreadsheet_id: str, tab_id: int, dryrun=False) -> None:
 
     remove_filter_spreadsheet_request_body = {"requests": [{"clearBasicFilter": {"sheetId": tab_id}}]}
     failures = 0
-    delay = 30.0
+    delay = SheetsService._retry_delay
     while True:
         try:
             SheetsService._logger.info("Removing filter in {} ({})".format(spreadsheet_id, tab_id))
@@ -105,7 +105,7 @@ def bulkupdate(
         fullSourceRange = "'{}'!{}".format(tab_name.replace("'", "\\'"), source_range)
 
     failures = 0
-    delay = 30.0
+    delay = SheetsService._retry_delay
     while True:
         try:
             SheetsService._logger.info(
@@ -226,7 +226,7 @@ def bulkclean(
         fullRangetoClean = "'{}'!{}".format(tab_name.replace("'", "\\'"), range)
 
     failures = 0
-    delay = 30.0
+    delay = SheetsService._retry_delay
     while True:
         try:
             SheetsService._logger.info(
@@ -316,7 +316,7 @@ def bulkwrite(
         ]
     }
     failures = 0
-    delay = 30.0
+    delay = SheetsService._retry_delay
     while True:
         try:
             SheetsService._logger.info(
@@ -393,7 +393,7 @@ def bulkappend(
     }
 
     failures = 0
-    delay = 30.0
+    delay = SheetsService._retry_delay
     while True:
         try:
             SheetsService._logger.info(

@@ -12,18 +12,22 @@ class DriveService:
     _sa_keyfile: Optional[str] = None
     _logger = logging.getLogger("gapi_helper")
     _lock = threading.Lock()
+    _retry_delay: float = 5.0
 
     @staticmethod
-    def configure(sa_keyfile: str, logger_namespace: str = None) -> None:
+    def configure(sa_keyfile: str, logger_namespace: str = None, retry_delay: float = None) -> None:
         """Configures the service. Must be called before using this service.
 
         Args:
         - sa_keyfile (str): Path to the service account key file
         - logger_namespace (str, optional): Namespace for the logger. Defaults to None, using "gapi_helper".
+        - retry_delay (float, optional): Delay for retrying operations (in seconds). Defaults to 5.
         """
         DriveService._sa_keyfile = sa_keyfile
         if logger_namespace:
             DriveService._logger = logging.getLogger(logger_namespace)
+        if retry_delay is not None:
+            DriveService._retry_delay = retry_delay
 
     def __init__(self, user: Optional[str] = None, logger_namespace: str = None) -> None:
         """Constructor

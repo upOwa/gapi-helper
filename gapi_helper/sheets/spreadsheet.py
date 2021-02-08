@@ -48,7 +48,7 @@ class Spreadsheet:
                 result = pickle.load(f)
         else:
             failures = 0
-            delay: float = 30
+            delay = SheetsService._retry_delay
             while True:
                 try:
                     SheetsService._logger.info(
