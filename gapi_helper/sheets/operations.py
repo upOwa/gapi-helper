@@ -3,7 +3,25 @@ import io
 import time
 from typing import Any, Dict, Iterable, List, Tuple, Union, cast
 
+import googleapiclient
+
 from .client import SheetsService
+
+
+def _handleException(e: Exception, spreadsheet_id: str) -> None:
+    if isinstance(e, googleapiclient.errors.HttpError):
+        if e.resp.status == 403:
+            SheetsService._logger.critical(
+                "Forbidden: cannot access spreadsheet_id={}".format(spreadsheet_id)
+            )
+            raise e
+        elif e.resp.status == 400:
+            SheetsService._logger.critical(
+                "Cannot perform operation on spreadsheet_id={}".format(spreadsheet_id)
+            )
+            raise e
+    elif isinstance(e, RuntimeError):
+        raise e
 
 
 def removefilter(spreadsheet_id: str, tab_id: int, dryrun: bool = False) -> None:
@@ -37,6 +55,8 @@ def removefilter(spreadsheet_id: str, tab_id: int, dryrun: bool = False) -> None
                     ).execute()
             break
         except Exception as e:
+            _handleException(e, spreadsheet_id)
+
             failures += 1
             if failures > 5:
                 SheetsService._logger.warning("Too many failures removing filter, abandonning")
@@ -169,6 +189,8 @@ def bulkupdate(
                 SheetsService._logger.info("No input data to update")
             break
         except Exception as e:
+            _handleException(e, spreadsheet_id)
+
             failures += 1
             if failures > 5:
                 SheetsService._logger.warning("Too many failures, abandonning")
@@ -242,6 +264,8 @@ def bulkclean(
                     ).execute()
             break
         except Exception as e:
+            _handleException(e, spreadsheet_id)
+
             failures += 1
             if failures > 5:
                 SheetsService._logger.warning("Too many failures cleaning, abandonning")
@@ -330,6 +354,8 @@ def bulkwrite(
                     ).execute()
             break
         except Exception as e:
+            _handleException(e, spreadsheet_id)
+
             failures += 1
             if failures > 5:
                 SheetsService._logger.warning("Too many failures writing, abandonning")
@@ -411,6 +437,8 @@ def bulkappend(
                     ).execute()
             break
         except Exception as e:
+            _handleException(e, spreadsheet_id)
+
             failures += 1
             if failures > 5:
                 SheetsService._logger.warning("Too many failures writing, abandonning")

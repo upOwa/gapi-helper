@@ -1,0 +1,11 @@
+{
+    "spreadsheetId": "myFakeGoogleSpreadsheetId",
+    "tableRange": "'MY TAB'!A1:E15",
+    "updates": {
+        "spreadsheetId": "myFakeGoogleSpreadsheetId",
+        "updatedRange": "'MY TAB'!A16:C19",
+        "updatedRows": 4,
+        "updatedColumns": 3,
+        "updatedCells": 12
+    }
+}
