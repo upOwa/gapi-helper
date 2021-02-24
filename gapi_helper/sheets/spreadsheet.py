@@ -96,6 +96,13 @@ class Spreadsheet:
         self.isLoaded = True
         return self
 
+    def clearInfos(self) -> None:
+        cachePath = os.path.join(
+            SheetsService.getCacheLocation(), "gs_infos-{}.pkl".format(self.spreadsheet_id)
+        )
+        if os.path.exists(cachePath):
+            os.remove(cachePath)
+
     def addSheet(self, tab_name: str, tab_id: int = None, mapping: Mapping = None) -> Sheet:
         """Maps a Sheet to this Spreadsheet.
 
