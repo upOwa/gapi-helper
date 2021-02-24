@@ -4,9 +4,10 @@ from typing import Any, List, Optional
 
 from .client import DriveService
 from .operations import download_file, update_file, upload_file
+from .file import File
 
 
-class Folder:
+class Folder(File):
     """Drive Folder"""
 
     def __init__(self, folder_name: str, folder_id: str, client: Optional[DriveService] = None) -> None:
@@ -15,14 +16,9 @@ class Folder:
         Args:
         - folder_name (str): Folder name - can be different from the actual name on the drive
         - folder_id (str): Folder ID (as given for instance via its url e.g. https://drive.google.com/drive/folders/<ID>)
-        - client (Optional[DriveService], optional): Drive service to be used - useful if delegation is required. Defaults to None (default service).
+        - client (DriveService, optional): Drive service to be used - useful if delegation is required. Defaults to None (default service).
         """
-        self.folder_name = folder_name
-        self.folder_id = folder_id
-        if client is None:
-            self.client = DriveService()
-        else:
-            self.client = client
+        super().__init__(folder_name, folder_id, client)
 
     def downloadFile(self, name: str, destination: str) -> Optional[str]:
         """Downloads a file from this folder
@@ -37,7 +33,7 @@ class Folder:
         file = self.findFile(name)
         if file:
             self.client._logger.info(
-                "Downloading file {} from {} ({})...".format(name, self.folder_name, self.folder_id)
+                "Downloading file {} from {} ({})...".format(name, self.file_name, self.file_id)
             )
             return download_file(self.client, file.get("id"), destination)
         return None
@@ -59,14 +55,14 @@ class Folder:
             if filedrive:
                 self.client._logger.info(
                     "Uploading file {} as new revision into {} ({})...".format(
-                        file, self.folder_name, self.folder_id
+                        file, self.file_name, self.file_id
                     )
                 )
                 return update_file(self.client, file, filedrive.get("id"), mimetype)
         self.client._logger.info(
-            "Uploading file {} as new file into {} ({})...".format(file, self.folder_name, self.folder_id)
+            "Uploading file {} as new file into {} ({})...".format(file, self.file_name, self.file_id)
         )
-        return upload_file(self.client, file, self.folder_id, mimetype)
+        return upload_file(self.client, file, self.file_id, mimetype)
 
     def findFile(self, name: str) -> Any:
         """Find file(s) in this folder based on its name.
@@ -84,12 +80,12 @@ class Folder:
         while True:
             try:
                 self.client._logger.info(
-                    "Searching for file {} in {} ({})...".format(name, self.folder_name, self.folder_id)
+                    "Searching for file {} in {} ({})...".format(name, self.file_name, self.file_id)
                 )
                 response = (
                     self.client.getService()
                     .files()
-                    .list(q="name = '{}' and '{}' in parents".format(name, self.folder_id))
+                    .list(q="name = '{}' and '{}' in parents".format(name, self.file_id))
                     .execute()
                 )
                 for file in response.get("files", []):
@@ -142,13 +138,13 @@ class Folder:
         delay = DriveService._retry_delay
         files = []
         page_token = None
-        self.client._logger.info("Retrieving files in {} ({})...".format(self.folder_name, self.folder_id))
+        self.client._logger.info("Retrieving files in {} ({})...".format(self.file_name, self.file_id))
         while True:
             try:
                 response = (
                     self.client.getService()
                     .files()
-                    .list(q="'{}' in parents".format(self.folder_id), pageToken=page_token)
+                    .list(q="'{}' in parents".format(self.file_id), pageToken=page_token)
                     .execute()
                 )
                 for file in response.get("files", []):
@@ -162,7 +158,7 @@ class Folder:
                 failures += 1
                 if failures > 2:
                     self.client._logger.warning("Too many failures, abandonning")
-                    self.client._logger.warning("Could not find folder {}: {}".format(self.folder_id, e))
+                    self.client._logger.warning("Could not find folder {}: {}".format(self.file_id, e))
                     return None
 
                 # Retry

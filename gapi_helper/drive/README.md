@@ -1,8 +1,9 @@
 # Google Drive API
 
-See [/sample/drive/files.py](../../sample/drive/files.py) for examples.
+See [/sample/drive/files.py](../../sample/drive/files.py) and [/sample/drive/sharewith.py](../../sample/drive/sharewith.py) for examples.
 
 ## Using the service directly
+
 ```python
 from gapi_helper.drive import DriveService
 
