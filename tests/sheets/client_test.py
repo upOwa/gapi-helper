@@ -23,7 +23,7 @@ class InitThread(threading.Thread):
 @pytest.mark.slow
 def test_multithread(request_mock) -> None:
     threads = []
-    q: queue.Queue[str] = queue.Queue()
+    q: "queue.Queue[str]" = queue.Queue()
     for i in range(5):
         thread = InitThread(q)
         threads.append(thread)
