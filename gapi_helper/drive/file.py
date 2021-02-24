@@ -95,4 +95,4 @@ class File:
         body = {"name": new_name or self.file_name, "parents": [folder.file_id]}
 
         f = self.client.getService().files().copy(fileId=self.file_id, body=body).execute()
-        return File(f.get("name"), f.get("id"))
+        return File(f.get("name"), f.get("id"), client=self.client)

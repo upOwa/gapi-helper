@@ -276,7 +276,7 @@ class Spreadsheet:
                     sendNotificationEmail=False,
                 )
         else:
-            file = File("stubbed", "abcdef")
+            file = File("stubbed", "abcdef", folder.client)
 
         spreadsheet = Spreadsheet(file.file_id, name)
         self.dumpTo(spreadsheet, dryrun=dryrun)
@@ -312,6 +312,6 @@ class Spreadsheet:
                     sendNotificationEmail=False,
                 )
         else:
-            f = File(self.spreadsheet_name, name)
+            f = File(self.spreadsheet_name, name, folder.client)
 
         return Spreadsheet(f.file_id, name)
