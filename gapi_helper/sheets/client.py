@@ -30,8 +30,8 @@ class SheetsService:
     def configure(
         sa_keyfile: str,
         spreadsheet_test: "Sheet",
-        backupLocation: str,
-        cacheLocation: str,
+        backupLocation: Optional[str],
+        cacheLocation: Optional[str],
         logger_namespace: str = None,
         force_test_spreadsheet: bool = False,
         retry_delay: float = None,
