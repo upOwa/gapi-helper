@@ -3,8 +3,8 @@ import time
 from typing import Any, List, Optional
 
 from .client import DriveService
-from .operations import download_file, update_file, upload_file
 from .file import File
+from .operations import download_file, insert_file, update_file, upload_file
 
 
 class Folder(File):
@@ -63,6 +63,46 @@ class Folder(File):
             "Uploading file {} as new file into {} ({})...".format(file, self.file_name, self.file_id)
         )
         return upload_file(self.client, file, self.file_id, mimetype)
+
+    def insertFile(
+        self, name: str, mimetype: str = "application/vnd.google-apps.spreadsheet"
+    ) -> Optional[File]:
+        """Inserts a new empty file in this folder.
+
+        This is useful if inserting a new Spreadsheet that can be manipulated dynamically through the sheets module
+        of this library - see https://developers.google.com/drive/api/v3/mime-types for Google Workspace MIME types.
+
+        Note: even if a file with the same name already exists in this folder, a new file will be created.
+
+        Args:
+        - name (str): Name of the file
+        - mimetype (str, optional): Mime-type of the file. Defaults to "application/vnd.google-apps.spreadsheet".
+
+        Returns:
+        - Optional[File]: Created file, or None if failed
+        """
+        file_id = insert_file(self.client, name, self.file_id, mimetype)
+        if file_id is not None:
+            return File(name, file_id, self.client)
+        else:
+            return None
+
+    def createFolder(self, name: str) -> Optional["Folder"]:
+        """Inserts a new empty folder in this folder.
+
+        Note: even if a folder with the same name already exists in this folder, a new folder will be created.
+
+        Args:
+        - name (str): Name of the folder
+
+        Returns:
+        - Optional[Folder]: Created folder, or None if failed
+        """
+        file_id = insert_file(self.client, name, self.file_id, "application/vnd.google-apps.folder")
+        if file_id is not None:
+            return Folder(name, file_id, self.client)
+        else:
+            return None
 
     def findFile(self, name: str) -> Any:
         """Find file(s) in this folder based on its name.
