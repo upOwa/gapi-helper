@@ -1,6 +1,9 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .client import DriveService
+
+if TYPE_CHECKING:
+    from .folder import Folder
 
 
 class File:
@@ -74,3 +77,22 @@ class File:
         self.client.getService().files().delete(
             fileId=self.file_id,
         ).execute()
+
+    def copyTo(self, folder: "Folder", new_name: Optional[str]) -> "File":
+        """Copies a file into another folder.
+
+        This creates a new copy of the file (e.g. duplicates) - it does *not* add the same file into another folder.
+
+        **Note:** this does *not* work with folders.
+
+        Args:
+        - folder (Folder): Folder to copy the file into
+        - new_name (str, optional): New name of the file - Defaults to the same name as the original file
+
+        Returns:
+        - File: Newly created file
+        """
+        body = {"name": new_name or self.file_name, "parents": [folder.file_id]}
+
+        f = self.client.getService().files().copy(fileId=self.file_id, body=body).execute()
+        return File(f.get("name"), f.get("id"))
