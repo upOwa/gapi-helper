@@ -177,11 +177,18 @@ class Spreadsheet:
                 if not dryrun:
                     service = SheetsService.getService()
                     with SheetsService._lock:
-                        service.spreadsheets().batchUpdate(
-                            spreadsheetId=self.spreadsheet_id,
-                            body={"requests": [{"addSheet": {"properties": props}}]},
-                        ).execute()
-                    self.loadInfos(True)
+                        res = (
+                            service.spreadsheets()
+                            .batchUpdate(
+                                spreadsheetId=self.spreadsheet_id,
+                                body={"requests": [{"addSheet": {"properties": props}}]},
+                            )
+                            .execute()
+                        )
+                    sheet_name = res["replies"][0]["addSheet"]["properties"]["title"]
+                    sheet_id = res["replies"][0]["addSheet"]["properties"]["sheetId"]
+
+                    self.registeredSheets[sheet_name] = Sheet(self, sheet_name, sheet_id)
                     return self.registeredSheets[tab_name]
                 else:
                     return Sheet(self, "Stubbed")
