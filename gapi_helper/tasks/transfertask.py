@@ -257,7 +257,9 @@ class TransferTask(Task, metaclass=abc.ABCMeta):
                             destination._sheet_to.parent.spreadsheet_id, batch_update_spreadsheet_request_body
                         )
                     ),
-                    initialdelay=random.uniform(20, 30),
+                    initialdelay=max(
+                        2, random.uniform(SheetsService._retry_delay - 5, SheetsService._retry_delay + 5)
+                    ),
                 )
                 requests_sent += 1
         else:
