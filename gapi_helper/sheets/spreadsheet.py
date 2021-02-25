@@ -285,7 +285,13 @@ class Spreadsheet:
     def copyIn(self, folder: Folder, name: str, dryrun: bool = False) -> "Spreadsheet":
         """Copy/pastes a spreadsheet into another one.
 
-        This creates a clone of this spreadsheet (keeping formulas etc.). See also `dumpIn` to remove formulas.
+        This creates a clone of this spreadsheet (keeping formulas, duplicating attached Forms, etc.).
+        See also `dumpIn` to remove formulas.
+
+        **Note:** if any Google Form is attached to the Spreadsheet, it will also be copied. But due to
+        limitations in the Google Spreadsheet/Drive APIs, the new Form will:
+        - be in the same folder as the old form (NOT in the folder provided to this function)
+        - be named "Copy of ..." (NOT following the name provided to this function)
 
         Args:
         - folder: destination folder that will contain the dumped spreadsheet
