@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING, Optional
 
+from ..common import execute
 from .client import DriveService
+from .operations import _copy_file, _delete_file, _share_file, _transfer_ownership
 
 if TYPE_CHECKING:
     from .folder import Folder
@@ -20,13 +22,11 @@ class File:
         self.file_name = file_name
         self.file_id = file_id
         if client is None:
-            self.client = DriveService()
+            self.client = DriveService.getDefaultService()
         else:
             self.client = client
 
-    def share(
-        self, user: str, role: Optional[str] = "reader", sendNotificationEmail: Optional[bool] = False
-    ) -> "File":
+    def share(self, user: str, role: str = "reader", sendNotificationEmail: bool = False) -> "File":
         """Shares this file with a specific user
 
         Args:
@@ -43,11 +43,11 @@ class File:
             "emailAddress": user,
         }
 
-        self.client.getService().permissions().create(
-            fileId=self.file_id,
-            body=body,
-            sendNotificationEmail=sendNotificationEmail,
-        ).execute()
+        execute(
+            lambda: _share_file(self.client, self.file_id, body, sendNotificationEmail),
+            retry_delay=DriveService._retry_delay,
+            logger=DriveService._logger,
+        )
         return self
 
     def transfer_ownership(self, user: str) -> "File":
@@ -65,18 +65,20 @@ class File:
             "emailAddress": user,
         }
 
-        self.client.getService().permissions().create(
-            fileId=self.file_id,
-            body=body,
-            transferOwnership=True,
-        ).execute()
+        execute(
+            lambda: _transfer_ownership(self.client, self.file_id, body),
+            retry_delay=DriveService._retry_delay,
+            logger=DriveService._logger,
+        )
         return self
 
     def delete(self) -> None:
         """Deletes this file."""
-        self.client.getService().files().delete(
-            fileId=self.file_id,
-        ).execute()
+        execute(
+            lambda: _delete_file(self.client, self.file_id),
+            retry_delay=DriveService._retry_delay,
+            logger=DriveService._logger,
+        )
 
     def copyTo(self, folder: "Folder", new_name: Optional[str]) -> "File":
         """Copies a file into another folder.
@@ -93,6 +95,9 @@ class File:
         - File: Newly created file
         """
         body = {"name": new_name or self.file_name, "parents": [folder.file_id]}
-
-        f = self.client.getService().files().copy(fileId=self.file_id, body=body).execute()
-        return File(f.get("name"), f.get("id"), client=self.client)
+        f = execute(
+            lambda: _copy_file(self.client, self.file_id, body),
+            retry_delay=DriveService._retry_delay,
+            logger=DriveService._logger,
+        )
+        return File(f["name"], f["id"], client=self.client)

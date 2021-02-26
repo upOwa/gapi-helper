@@ -1,14 +1,15 @@
 import logging
 import os
 import threading
-import time
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import googleapiclient.discovery
 from oauth2client.service_account import ServiceAccountCredentials
 
+from ..common import execute
+
 if TYPE_CHECKING:
-    from gapi_helper.sheets.sheet import Sheet  # pragma: no cover
+    from .sheet import Sheet  # pragma: no cover
 
 
 class SheetsService:
@@ -101,6 +102,21 @@ class SheetsService:
         return SheetsService._spreadsheet_test
 
     @staticmethod
+    def _getService(credentials: Any) -> None:
+        assert SheetsService._spreadsheet_test is not None
+
+        service = googleapiclient.discovery.build("sheets", "v4", credentials=credentials)
+        service.spreadsheets().get(
+            spreadsheetId=SheetsService._spreadsheet_test.parent.spreadsheet_id
+        ).execute()
+
+        SheetsService.credentials = credentials
+        SheetsService.headers = {
+            "Authorization": "Bearer " + credentials.access_token,
+        }
+        SheetsService.service = service
+
+    @staticmethod
     def getService() -> googleapiclient.discovery.Resource:
         """Returns the Google Sheets API service
 
@@ -124,36 +140,11 @@ class SheetsService:
                     ),
                 )
 
-                service = googleapiclient.discovery.build("sheets", "v4", credentials=credentials)
-
-                failures: int = 0
-                delay = SheetsService._retry_delay
-                while True:
-                    try:
-                        service.spreadsheets().get(
-                            spreadsheetId=SheetsService._spreadsheet_test.parent.spreadsheet_id
-                        ).execute()
-
-                        SheetsService.credentials = credentials
-                        SheetsService.headers = {
-                            "Authorization": "Bearer " + credentials.access_token,
-                        }
-                        SheetsService.service = service
-                        break
-                    except Exception as e:
-                        failures += 1
-                        if failures > 5:
-                            SheetsService._logger.warning("Too many failures getting service, abandonning")
-                            raise e
-
-                        # Retry
-                        SheetsService._logger.warning(
-                            "Failed getting service {} times ({}), retrying in {} seconds...".format(
-                                failures, e, delay
-                            )
-                        )
-                        time.sleep(delay)
-                        delay *= 1.5
+                execute(
+                    lambda: SheetsService._getService(credentials),
+                    retry_delay=SheetsService._retry_delay,
+                    logger=SheetsService._logger,
+                )
 
             return SheetsService.service
 
