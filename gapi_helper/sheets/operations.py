@@ -1,27 +1,17 @@
 import csv
 import io
-import time
 from typing import Any, Dict, Iterable, List, Tuple, Union, cast
 
-import googleapiclient
+import requests
 
+from ..common import execute
 from .client import SheetsService
 
 
-def _handleException(e: Exception, spreadsheet_id: str) -> None:
-    if isinstance(e, googleapiclient.errors.HttpError):
-        if e.resp.status == 403:
-            SheetsService._logger.critical(
-                "Forbidden: cannot access spreadsheet_id={}".format(spreadsheet_id)
-            )
-            raise e
-        elif e.resp.status == 400:
-            SheetsService._logger.critical(
-                "Cannot perform operation on spreadsheet_id={}".format(spreadsheet_id)
-            )
-            raise e
-    elif isinstance(e, RuntimeError):
-        raise e
+def _batchupdate(spreadsheet_id: str, body: Any) -> Any:
+    service = SheetsService.getService()
+    with SheetsService._lock:
+        return service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
 
 def removefilter(spreadsheet_id: str, tab_id: int, dryrun: bool = False) -> None:
@@ -42,33 +32,84 @@ def removefilter(spreadsheet_id: str, tab_id: int, dryrun: bool = False) -> None
         tab_id = cast(int, SheetsService.getTestSpreadsheet().tab_id)
 
     remove_filter_spreadsheet_request_body = {"requests": [{"clearBasicFilter": {"sheetId": tab_id}}]}
-    failures = 0
-    delay = SheetsService._retry_delay
-    while True:
-        try:
-            SheetsService._logger.info("Removing filter in {} ({})".format(spreadsheet_id, tab_id))
-            if not dryrun:
+
+    SheetsService._logger.info("Removing filter in {} ({})".format(spreadsheet_id, tab_id))
+    if not dryrun:
+        execute(
+            lambda: _batchupdate(spreadsheet_id, remove_filter_spreadsheet_request_body),
+            retry_delay=SheetsService._retry_delay,
+            logger=SheetsService._logger,
+        )
+
+
+def _bulkupdate(
+    fullSourceRange: str,
+    spreadsheet_id: str,
+    spreadsheet_name: str,
+    tab_id: int,
+    tab_name: str,
+    keys: Iterable[str],
+    destination_value: Union[str, Dict[str, str]],
+    destination_row_offset: int,
+    destination_column: int,
+    dryrun: bool,
+) -> List[Tuple[int, str]]:
+    SheetsService._logger.info(
+        "Getting values from {} {} ({}) in {} ({})...".format(
+            fullSourceRange, spreadsheet_id, spreadsheet_name, tab_id, tab_name
+        )
+    )
+    service = SheetsService.getService()
+    with SheetsService._lock:
+        result = (
+            service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=fullSourceRange).execute()
+        )
+
+    index = []
+    if result and "values" in result:
+        for idx, val in enumerate(result["values"]):
+            if len(val) > 0 and val[0] in keys:
+                if isinstance(destination_value, dict):
+                    newValue = destination_value[val[0]]
+                else:
+                    newValue = destination_value
+                index.append((idx + destination_row_offset, newValue))
+
+        batch_update_spreadsheet_request_body: Dict[str, Any] = {"requests": []}
+        for i in index:
+            batch_update_spreadsheet_request_body["requests"].append(
+                {
+                    "pasteData": {
+                        "data": i[1],
+                        "type": "PASTE_NORMAL",
+                        "delimiter": ",",
+                        "coordinate": {
+                            "sheetId": tab_id,
+                            "rowIndex": i[0],
+                            "columnIndex": destination_column,
+                        },
+                    },
+                }
+            )
+
+        if batch_update_spreadsheet_request_body["requests"]:
+            SheetsService._logger.info(
+                "Writing to {} ({}) in {} ({})...".format(spreadsheet_id, spreadsheet_name, tab_id, tab_name)
+            )
+            if dryrun:
+                SheetsService._logger.info("Stubbed")
+            else:
                 service = SheetsService.getService()
                 with SheetsService._lock:
                     service.spreadsheets().batchUpdate(
-                        spreadsheetId=spreadsheet_id, body=remove_filter_spreadsheet_request_body
+                        spreadsheetId=spreadsheet_id, body=batch_update_spreadsheet_request_body
                     ).execute()
-            break
-        except Exception as e:
-            _handleException(e, spreadsheet_id)
+        else:
+            SheetsService._logger.info("Nothing to update")
+    else:
+        SheetsService._logger.info("No input data to update")
 
-            failures += 1
-            if failures > 5:
-                SheetsService._logger.warning("Too many failures removing filter, abandonning")
-                raise e
-
-            # Retry
-            SheetsService._logger.warning(
-                "Failed removing filter {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-            )
-            time.sleep(delay)
-            SheetsService.reset()
-            delay *= 1.5
+    return index
 
 
 def bulkupdate(
@@ -124,87 +165,28 @@ def bulkupdate(
     else:
         fullSourceRange = "'{}'!{}".format(tab_name.replace("'", "\\'"), source_range)
 
-    failures = 0
-    delay = SheetsService._retry_delay
-    while True:
-        try:
-            SheetsService._logger.info(
-                "Getting values from {} {} ({}) in {} ({})...".format(
-                    fullSourceRange, spreadsheet_id, spreadsheet_name, tab_id, tab_name
-                )
-            )
-            service = SheetsService.getService()
-            with SheetsService._lock:
-                result = (
-                    service.spreadsheets()
-                    .values()
-                    .get(spreadsheetId=spreadsheet_id, range=fullSourceRange)
-                    .execute()
-                )
+    return execute(
+        lambda: _bulkupdate(
+            fullSourceRange,
+            spreadsheet_id,
+            spreadsheet_name,
+            tab_id,
+            tab_name,
+            keys,
+            destination_value,
+            destination_row_offset,
+            destination_column,
+            dryrun,
+        ),
+        retry_delay=SheetsService._retry_delay,
+        logger=SheetsService._logger,
+    )
 
-            index = []
-            if result and "values" in result:
-                for idx, val in enumerate(result["values"]):
-                    if len(val) > 0 and val[0] in keys:
-                        if isinstance(destination_value, dict):
-                            newValue = destination_value[val[0]]
-                        else:
-                            newValue = destination_value
-                        index.append((idx + destination_row_offset, newValue))
 
-                batch_update_spreadsheet_request_body: Dict[str, Any] = {"requests": []}
-                for i in index:
-                    batch_update_spreadsheet_request_body["requests"].append(
-                        {
-                            "pasteData": {
-                                "data": i[1],
-                                "type": "PASTE_NORMAL",
-                                "delimiter": ",",
-                                "coordinate": {
-                                    "sheetId": tab_id,
-                                    "rowIndex": i[0],
-                                    "columnIndex": destination_column,
-                                },
-                            },
-                        }
-                    )
-
-                if batch_update_spreadsheet_request_body["requests"]:
-                    SheetsService._logger.info(
-                        "Writing to {} ({}) in {} ({})...".format(
-                            spreadsheet_id, spreadsheet_name, tab_id, tab_name
-                        )
-                    )
-                    if dryrun:
-                        SheetsService._logger.info("Stubbed")
-                    else:
-                        service = SheetsService.getService()
-                        with SheetsService._lock:
-                            service.spreadsheets().batchUpdate(
-                                spreadsheetId=spreadsheet_id, body=batch_update_spreadsheet_request_body
-                            ).execute()
-                else:
-                    SheetsService._logger.info("Nothing to update")
-            else:
-                SheetsService._logger.info("No input data to update")
-            break
-        except Exception as e:
-            _handleException(e, spreadsheet_id)
-
-            failures += 1
-            if failures > 5:
-                SheetsService._logger.warning("Too many failures, abandonning")
-                raise e
-
-            # Retry
-            SheetsService._logger.warning(
-                "Failed {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-            )
-            time.sleep(delay)
-            SheetsService.reset()
-            delay *= 1.5
-
-    return index
+def _clear(spreadsheet_id: str, range: str) -> None:
+    service = SheetsService.getService()
+    with SheetsService._lock:
+        service.spreadsheets().values().clear(spreadsheetId=spreadsheet_id, range=range).execute()
 
 
 def bulkclean(
@@ -247,37 +229,17 @@ def bulkclean(
     else:
         fullRangetoClean = "'{}'!{}".format(tab_name.replace("'", "\\'"), range)
 
-    failures = 0
-    delay = SheetsService._retry_delay
-    while True:
-        try:
-            SheetsService._logger.info(
-                "Cleaning {} {} ({}) in {} ({})...".format(
-                    fullRangetoClean, spreadsheet_id, spreadsheet_name, tab_id, tab_name
-                )
-            )
-            if not dryrun:
-                service = SheetsService.getService()
-                with SheetsService._lock:
-                    service.spreadsheets().values().clear(
-                        spreadsheetId=spreadsheet_id, range=fullRangetoClean
-                    ).execute()
-            break
-        except Exception as e:
-            _handleException(e, spreadsheet_id)
-
-            failures += 1
-            if failures > 5:
-                SheetsService._logger.warning("Too many failures cleaning, abandonning")
-                raise e
-
-            # Retry
-            SheetsService._logger.warning(
-                "Failed cleaning {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-            )
-            time.sleep(delay)
-            SheetsService.reset()
-            delay *= 1.5
+    SheetsService._logger.info(
+        "Cleaning {} {} ({}) in {} ({})...".format(
+            fullRangetoClean, spreadsheet_id, spreadsheet_name, tab_id, tab_name
+        )
+    )
+    if not dryrun:
+        execute(
+            lambda: _clear(spreadsheet_id, fullRangetoClean),
+            retry_delay=SheetsService._retry_delay,
+            logger=SheetsService._logger,
+        )
 
 
 def bulkwrite(
@@ -339,35 +301,27 @@ def bulkwrite(
             }
         ]
     }
-    failures = 0
-    delay = SheetsService._retry_delay
-    while True:
-        try:
-            SheetsService._logger.info(
-                "Writing to {} ({}) in {} ({})...".format(spreadsheet_id, spreadsheet_name, tab_id, tab_name)
-            )
-            if not dryrun:
-                service = SheetsService.getService()
-                with SheetsService._lock:
-                    service.spreadsheets().batchUpdate(
-                        spreadsheetId=spreadsheet_id, body=batch_update_spreadsheet_request_body
-                    ).execute()
-            break
-        except Exception as e:
-            _handleException(e, spreadsheet_id)
+    SheetsService._logger.info(
+        "Writing to {} ({}) in {} ({})...".format(spreadsheet_id, spreadsheet_name, tab_id, tab_name)
+    )
+    if not dryrun:
+        execute(
+            lambda: _batchupdate(spreadsheet_id, batch_update_spreadsheet_request_body),
+            retry_delay=SheetsService._retry_delay,
+            logger=SheetsService._logger,
+        )
 
-            failures += 1
-            if failures > 5:
-                SheetsService._logger.warning("Too many failures writing, abandonning")
-                raise e
 
-            # Retry
-            SheetsService._logger.warning(
-                "Failed writing {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-            )
-            time.sleep(delay)
-            SheetsService.reset()
-            delay *= 1.5
+def _append(spreadsheet_id: str, range: str, body: Any) -> None:
+    service = SheetsService.getService()
+    with SheetsService._lock:
+        service.spreadsheets().values().append(
+            spreadsheetId=spreadsheet_id,
+            range=range,
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body=body,
+        ).execute()
 
 
 def bulkappend(
@@ -418,36 +372,27 @@ def bulkappend(
         "values": data,
     }
 
-    failures = 0
-    delay = SheetsService._retry_delay
-    while True:
-        try:
-            SheetsService._logger.info(
-                "Writing to {} ({}) in {} ({})...".format(spreadsheet_id, spreadsheet_name, tab_id, tab_name)
-            )
-            if not dryrun:
-                service = SheetsService.getService()
-                with SheetsService._lock:
-                    service.spreadsheets().values().append(
-                        spreadsheetId=spreadsheet_id,
-                        range=fullRange,
-                        valueInputOption="USER_ENTERED",
-                        insertDataOption="INSERT_ROWS",
-                        body=request_body,
-                    ).execute()
-            break
-        except Exception as e:
-            _handleException(e, spreadsheet_id)
+    SheetsService._logger.info(
+        "Writing to {} ({}) in {} ({})...".format(spreadsheet_id, spreadsheet_name, tab_id, tab_name)
+    )
+    execute(
+        lambda: _append(spreadsheet_id, range, request_body),
+        retry_delay=SheetsService._retry_delay,
+        logger=SheetsService._logger,
+    )
 
-            failures += 1
-            if failures > 5:
-                SheetsService._logger.warning("Too many failures writing, abandonning")
-                raise e
 
-            # Retry
-            SheetsService._logger.warning(
-                "Failed writing {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-            )
-            time.sleep(delay)
-            SheetsService.reset()
-            delay *= 1.5
+def _load_infos(spreadsheet_id: str) -> Any:
+    service = SheetsService.getService()
+    with SheetsService._lock:
+        return service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+
+
+def _download_file(spreadsheet_id: str, tab_id: int, to: str) -> None:
+    url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={tab_id}"
+    response = requests.get(url, headers=SheetsService.getHeaders())
+    response.raise_for_status()
+    if response.headers.get("Content-Type") != "text/csv":
+        raise Exception("Bad format received")
+    with open(to, "wb") as csvFile:
+        csvFile.write(response.content)

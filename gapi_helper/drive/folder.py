@@ -1,10 +1,10 @@
 import os
-import time
 from typing import Any, List, Optional
 
+from ..common import execute
 from .client import DriveService
 from .file import File
-from .operations import download_file, insert_file, update_file, upload_file
+from .operations import _find_file, _list_files, download_file, insert_file, update_file, upload_file
 
 
 class Folder(File):
@@ -115,37 +115,17 @@ class Folder(File):
         Returns:
         - Any: File that matches the name, or None if not found
         """
-        failures = 0
-        delay = DriveService._retry_delay
-        while True:
-            try:
-                self.client._logger.info(
-                    "Searching for file {} in {} ({})...".format(name, self.file_name, self.file_id)
-                )
-                response = (
-                    self.client.getService()
-                    .files()
-                    .list(q="name = '{}' and '{}' in parents".format(name, self.file_id))
-                    .execute()
-                )
-                for file in response.get("files", []):
-                    return file
-                return None
-
-            except Exception as e:
-                failures += 1
-                if failures > 2:
-                    self.client._logger.warning("Too many failures, abandonning")
-                    self.client._logger.warning("Could not find file {}: {}".format(name, e))
-                    return None
-
-                # Retry
-                self.client._logger.warning(
-                    "Failed {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-                )
-                time.sleep(delay)
-                self.client.reset()
-                delay *= 1.5
+        self.client._logger.info(
+            "Searching for file {} in {} ({})...".format(name, self.file_name, self.file_id)
+        )
+        files = execute(
+            lambda: _find_file(self.client, name, self.file_id),
+            retry_delay=DriveService._retry_delay,
+            logger=DriveService._logger,
+        )
+        for file in files:
+            return file
+        return None
 
     def hasFile(self, filename: str, destination: str) -> Optional[str]:
         """Returns whether a file has been downloaded or not.
@@ -174,37 +154,18 @@ class Folder(File):
         Returns:
         - Optional[List[Any]]: List of files, or None if failed
         """
-        failures = 0
-        delay = DriveService._retry_delay
         files = []
         page_token = None
         self.client._logger.info("Retrieving files in {} ({})...".format(self.file_name, self.file_id))
         while True:
-            try:
-                response = (
-                    self.client.getService()
-                    .files()
-                    .list(q="'{}' in parents".format(self.file_id), pageToken=page_token)
-                    .execute()
-                )
-                for file in response.get("files", []):
-                    files.append(file)
+            response = execute(
+                lambda: _list_files(self.client, self.file_id, page_token),
+                retry_delay=DriveService._retry_delay,
+                logger=DriveService._logger,
+            )
+            for file in response.get("files", []):
+                files.append(file)
 
-                page_token = response.get("nextPageToken", None)
-                if page_token is None:
-                    return files
-
-            except Exception as e:
-                failures += 1
-                if failures > 2:
-                    self.client._logger.warning("Too many failures, abandonning")
-                    self.client._logger.warning("Could not find folder {}: {}".format(self.file_id, e))
-                    return None
-
-                # Retry
-                self.client._logger.warning(
-                    "Failed {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-                )
-                time.sleep(delay)
-                self.client.reset()
-                delay *= 1.5
+            page_token = response.get("nextPageToken", None)
+            if page_token is None:
+                return files

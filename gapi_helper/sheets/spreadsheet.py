@@ -3,15 +3,14 @@ import csv
 import os
 import pickle
 import tempfile
-import time
 from typing import Any, Dict, Optional
 
 from simpletasks_data import Mapping
 
-from gapi_helper.drive import File, Folder
-from gapi_helper.sheets.operations import bulkwrite
-
+from ..common import execute
+from ..drive import File, Folder
 from .client import SheetsService
+from .operations import _batchupdate, _load_infos, bulkwrite
 from .sheet import Sheet
 
 
@@ -53,35 +52,17 @@ class Spreadsheet:
             with open(cachePath, "rb") as f:
                 result = pickle.load(f)
         else:
-            failures = 0
-            delay = SheetsService._retry_delay
-            while True:
-                try:
-                    SheetsService._logger.info(
-                        "Downloading cache info for {} ({})...".format(
-                            self.spreadsheet_name, self.spreadsheet_id
-                        )
-                    )
-                    service = SheetsService.getService()
-                    with SheetsService._lock:
-                        result = service.spreadsheets().get(spreadsheetId=self.spreadsheet_id).execute()
+            SheetsService._logger.info(
+                "Downloading cache info for {} ({})...".format(self.spreadsheet_name, self.spreadsheet_id)
+            )
+            result = execute(
+                lambda: _load_infos(self.spreadsheet_id),
+                retry_delay=SheetsService._retry_delay,
+                logger=SheetsService._logger,
+            )
 
-                    with open(cachePath, "wb") as f:
-                        pickle.dump(result, f, pickle.HIGHEST_PROTOCOL)
-                    break
-                except Exception as e:
-                    failures += 1
-                    if failures > 5:
-                        SheetsService._logger.warning("Too many failures, abandonning")
-                        raise e
-
-                    # Retry
-                    SheetsService._logger.warning(
-                        "Failed {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-                    )
-                    time.sleep(delay)
-                    SheetsService.reset()
-                    delay *= 1.5
+            with open(cachePath, "wb") as f:
+                pickle.dump(result, f, pickle.HIGHEST_PROTOCOL)
 
         if self.spreadsheet_name is None:
             self.spreadsheet_name = result["properties"]["title"]
@@ -159,53 +140,29 @@ class Spreadsheet:
         if tab_name in self.registeredSheets:
             return self.registeredSheets[tab_name]
 
-        failures = 0
-        delay = SheetsService._retry_delay
-
         props = copy.deepcopy(properties)
         props["title"] = tab_name
         if tab_id is not None:
             props["sheetId"] = tab_id
 
-        while True:
-            try:
-                SheetsService._logger.info(
-                    "Creating sheet {} in {} ({})...".format(
-                        tab_name, self.spreadsheet_name, self.spreadsheet_id
-                    )
-                )
-                if not dryrun:
-                    service = SheetsService.getService()
-                    with SheetsService._lock:
-                        res = (
-                            service.spreadsheets()
-                            .batchUpdate(
-                                spreadsheetId=self.spreadsheet_id,
-                                body={"requests": [{"addSheet": {"properties": props}}]},
-                            )
-                            .execute()
-                        )
-                    sheet_name = res["replies"][0]["addSheet"]["properties"]["title"]
-                    sheet_id = res["replies"][0]["addSheet"]["properties"]["sheetId"]
+        SheetsService._logger.info(
+            "Creating sheet {} in {} ({})...".format(tab_name, self.spreadsheet_name, self.spreadsheet_id)
+        )
+        if not dryrun:
+            res = execute(
+                lambda: _batchupdate(
+                    self.spreadsheet_id, body={"requests": [{"addSheet": {"properties": props}}]}
+                ),
+                retry_delay=SheetsService._retry_delay,
+                logger=SheetsService._logger,
+            )
+            sheet_name = res["replies"][0]["addSheet"]["properties"]["title"]
+            sheet_id = res["replies"][0]["addSheet"]["properties"]["sheetId"]
 
-                    self.registeredSheets[sheet_name] = Sheet(self, sheet_name, sheet_id)
-                    return self.registeredSheets[tab_name]
-                else:
-                    return Sheet(self, "Stubbed")
-
-            except Exception as e:
-                failures += 1
-                if failures > 5:
-                    SheetsService._logger.warning("Too many failures, abandonning")
-                    raise e
-
-                # Retry
-                SheetsService._logger.warning(
-                    "Failed {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-                )
-                time.sleep(delay)
-                SheetsService.reset()
-                delay *= 1.5
+            self.registeredSheets[sheet_name] = Sheet(self, sheet_name, sheet_id)
+            return self.registeredSheets[tab_name]
+        else:
+            return Sheet(self, "Stubbed")
 
     def dumpTo(self, spreadsheet: "Spreadsheet", dryrun: bool = False) -> "Spreadsheet":
         """Copy/pastes a spreadsheet into another one.

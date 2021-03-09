@@ -5,6 +5,8 @@ from typing import Any, Optional
 import googleapiclient.discovery
 from oauth2client.service_account import ServiceAccountCredentials
 
+from ..common import execute
+
 
 class DriveService:
     """Service to handle Google Drive."""
@@ -13,6 +15,7 @@ class DriveService:
     _logger = logging.getLogger("gapi_helper")
     _lock = threading.Lock()
     _retry_delay: float = 5.0
+    _defaultService: Optional["DriveService"] = None
 
     @staticmethod
     def configure(sa_keyfile: str, logger_namespace: str = None, retry_delay: float = None) -> None:
@@ -28,6 +31,14 @@ class DriveService:
             DriveService._logger = logging.getLogger(logger_namespace)
         if retry_delay is not None:
             DriveService._retry_delay = retry_delay
+
+        DriveService._defaultService = DriveService()
+
+    @staticmethod
+    def getDefaultService() -> "DriveService":
+        if DriveService._defaultService is None:
+            raise RuntimeError("Service is not configured")
+        return DriveService._defaultService
 
     def __init__(self, user: Optional[str] = None, logger_namespace: str = None) -> None:
         """Constructor
@@ -74,7 +85,11 @@ class DriveService:
                     self.credentials = credentials.create_delegated(self._user)
                 else:
                     self.credentials = credentials
-                self.service = googleapiclient.discovery.build("drive", "v3", credentials=self.credentials)
+                self.service = execute(
+                    lambda: googleapiclient.discovery.build("drive", "v3", credentials=self.credentials),
+                    retry_delay=DriveService._retry_delay,
+                    logger=DriveService._logger,
+                )
 
             return self.service
 

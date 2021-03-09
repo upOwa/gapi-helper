@@ -1,0 +1,12 @@
+{
+    "kind": "drive#fileList",
+    "incompleteSearch": false,
+    "files": [
+        {
+            "kind": "drive#file",
+            "id": "ABCDEF",
+            "name": "My File",
+            "mimeType": "application/vnd.google-apps.spreadsheet"
+        }
+    ]
+}

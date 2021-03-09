@@ -1,0 +1,6 @@
+{
+    "kind": "drive#file",
+    "id": "MyNewId__",
+    "name": "Copy",
+    "mimeType": "application/vnd.google-apps.spreadsheet"
+}

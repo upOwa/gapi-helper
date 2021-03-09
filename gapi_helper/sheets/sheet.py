@@ -3,14 +3,13 @@ import csv
 import datetime
 import os
 import tempfile
-import time
-from typing import IO, TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import IO, TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union, cast
 
-import requests
 from simpletasks_data import Mapping
 
+from ..common import execute
 from .client import SheetsService
-from .operations import bulkappend, bulkclean, bulkupdate, bulkwrite, removefilter
+from .operations import _download_file, bulkappend, bulkclean, bulkupdate, bulkwrite, removefilter
 
 if TYPE_CHECKING:
     from .spreadsheet import Spreadsheet  # pragma: no cover
@@ -105,35 +104,14 @@ class Sheet:
             if self.tab_id is None:
                 self.parent.loadInfos(True)
 
-        url = "https://docs.google.com/spreadsheets/d/{}/export?format=csv&gid={}".format(
-            self.parent.spreadsheet_id, self.tab_id
+        assert self.tab_id is not None
+
+        SheetsService._logger.info("Downloading {}...".format(filePath))
+        execute(
+            lambda: _download_file(self.parent.spreadsheet_id, cast(int, self.tab_id), filePath),
+            retry_delay=SheetsService._retry_delay,
+            logger=SheetsService._logger,
         )
-
-        failures = 0
-        delay = SheetsService._retry_delay
-        while True:
-            try:
-                SheetsService._logger.info("Downloading {}...".format(filePath))
-                response = requests.get(url, headers=SheetsService.getHeaders())
-                response.raise_for_status()
-                if response.headers.get("Content-Type") != "text/csv":
-                    raise Exception("Bad format received")
-                with open(filePath, "wb") as csvFile:
-                    csvFile.write(response.content)
-                break
-            except Exception as e:
-                failures += 1
-                if failures > 5:
-                    SheetsService._logger.warning("Too many failures, abandonning")
-                    raise e
-
-                # Retry
-                SheetsService._logger.warning(
-                    "Failed {} times ({}), retrying in {} seconds...".format(failures, e, delay)
-                )
-                time.sleep(delay)
-                SheetsService.reset()
-                delay *= 1.5
 
     def removeFilter(self, dryrun: bool = False) -> None:
         """Removes any active filter on the sheet.
