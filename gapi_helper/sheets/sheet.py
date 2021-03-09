@@ -3,11 +3,12 @@ import csv
 import datetime
 import os
 import tempfile
+import time
 from typing import IO, TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union, cast
 
+import googleapiclient
 from simpletasks_data import Mapping
 
-from ..common import execute
 from .client import SheetsService
 from .operations import _download_file, bulkappend, bulkclean, bulkupdate, bulkwrite, removefilter
 
@@ -107,11 +108,32 @@ class Sheet:
         assert self.tab_id is not None
 
         SheetsService._logger.info("Downloading {}...".format(filePath))
-        execute(
-            lambda: _download_file(self.parent.spreadsheet_id, cast(int, self.tab_id), filePath),
-            retry_delay=SheetsService._retry_delay,
-            logger=SheetsService._logger,
-        )
+        failures = 0
+        delay = SheetsService._retry_delay
+        while True:
+            try:
+                if failures > 0:
+                    SheetsService._logger.info("Retrying...")
+                return _download_file(self.parent.spreadsheet_id, cast(int, self.tab_id), filePath)
+
+            except Exception as e:
+                if isinstance(e, googleapiclient.errors.HttpError):
+                    if e.resp.status in [403, 400]:
+                        raise e
+                elif isinstance(e, RuntimeError):
+                    raise e
+
+                failures += 1
+                if failures > 5:
+                    SheetsService._logger.warning("Too many failures, abandonning")
+                    raise e
+
+                SheetsService._logger.warning(
+                    "Failed {} times ({}), retrying in {} seconds...".format(failures, e, delay)
+                )
+                SheetsService.reset()
+                time.sleep(delay)
+                delay *= 1.5
 
     def removeFilter(self, dryrun: bool = False) -> None:
         """Removes any active filter on the sheet.

@@ -152,6 +152,8 @@ class SheetsService:
     def getHeaders() -> Dict[str, str]:
         """Get authorization headers.
 
+        **Note:** Headers can be out-of-date. If you get 401 errors on your requests, call `reset()` and retry.
+
         Returns:
         - Dict[str, str]: authorization headers
         """
