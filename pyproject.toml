@@ -4,7 +4,7 @@ target-version = ['py36']
 
 [tool.poetry]
 name = "gapi-helper"
-version = "0.2.1"
+version = "0.2.2"
 description = "Helpers around Google APIs"
 authors = ["Thomas Muguet <thomas.muguet@upowa.org>"]
 license = "LGPL-3.0-or-later"
