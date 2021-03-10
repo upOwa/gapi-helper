@@ -376,7 +376,7 @@ def bulkappend(
         "Writing to {} ({}) in {} ({})...".format(spreadsheet_id, spreadsheet_name, tab_id, tab_name)
     )
     execute(
-        lambda: _append(spreadsheet_id, range, request_body),
+        lambda: _append(spreadsheet_id, fullRange, request_body),
         retry_delay=SheetsService._retry_delay,
         logger=SheetsService._logger,
     )
